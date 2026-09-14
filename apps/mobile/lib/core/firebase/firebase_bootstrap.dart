@@ -7,11 +7,18 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import '../constants/app_constants.dart';
 import 'firebase_options.dart';
 
 class FirebaseBootstrap {
   static bool initialized = false;
   static bool useEmulators = false;
+
+  /// Set via --dart-define=USE_FIREBASE_EMULATORS=true for local dev only.
+  static const bool _useEmulatorsInDebug = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATORS',
+    defaultValue: true,
+  );
 
   static Future<void> initialize() async {
     if (initialized) return;
@@ -20,13 +27,15 @@ class FirebaseBootstrap {
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      if (kDebugMode) {
+      if (kDebugMode && _useEmulatorsInDebug) {
         await _connectEmulators();
       } else if (!kIsWeb) {
-        await FirebaseAppCheck.instance.activate(
-          androidProvider: AndroidProvider.playIntegrity,
-          appleProvider: AppleProvider.appAttest,
-        );
+        if (AppConstants.enableAppCheck) {
+          await FirebaseAppCheck.instance.activate(
+            androidProvider: AndroidProvider.playIntegrity,
+            appleProvider: AppleProvider.appAttest,
+          );
+        }
         FlutterError.onError =
             FirebaseCrashlytics.instance.recordFlutterFatalError;
       }

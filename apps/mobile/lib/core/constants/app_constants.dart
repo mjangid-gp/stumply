@@ -7,4 +7,7 @@ class AppConstants {
   static const proEntitlementId = 'pro_club';
   static const razorpayKeyPlaceholder = 'rzp_test_YOUR_KEY';
   static const agoraAppIdPlaceholder = 'YOUR_AGORA_APP_ID';
+
+  /// Set true after Play Store / Play Integrity is configured.
+  static const enableAppCheck = false;
 }
