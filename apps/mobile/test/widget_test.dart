@@ -15,7 +15,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Crick'), findsOneWidget);
+    expect(find.text('Stumply'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
   });
 }

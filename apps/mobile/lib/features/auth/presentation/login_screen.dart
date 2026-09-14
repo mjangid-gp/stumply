@@ -61,7 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: Column(
         children: [
           CrickGradientHeader(
-            title: 'Crick',
+            title: 'Stumply',
             subtitle: 'Score matches. Track your journey.',
             child: Row(
               children: [

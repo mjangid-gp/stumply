@@ -1,5 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'main_shell.dart';
+
+class DrawerMenuButton extends StatelessWidget {
+  const DrawerMenuButton({super.key, this.iconColor = Colors.white});
+
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(Icons.menu, color: iconColor),
+      tooltip: 'Menu',
+      onPressed: () => MainShell.scaffoldKey.currentState?.openDrawer(),
+    );
+  }
+}
 
 class CrickGradientHeader extends StatelessWidget {
   const CrickGradientHeader({

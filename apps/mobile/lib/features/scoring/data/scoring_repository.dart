@@ -78,6 +78,27 @@ class ScoringRepository {
       await ref.child('events/${event.sequence}').set(event.toJson());
       await _localDb.markSynced(matchId, event.sequence);
     }
+
+    final engine = _engines[matchId];
+    if (engine != null) {
+      final state = engine.state;
+      await ref.child('state').set({
+        'currentInnings': state.currentInnings,
+        'strikerId': state.strikerId,
+        'nonStrikerId': state.nonStrikerId,
+        'bowlerId': state.bowlerId,
+        'totalRuns': state.totalRuns,
+        'wickets': state.wickets,
+        'overs': state.overs,
+        'ballsInOver': state.ballsInOver,
+        'isFreeHit': state.isFreeHit,
+        'lastSequence': state.lastSequence,
+        'target': state.target,
+        'result': state.result,
+        'battingTeamId': state.battingTeamId,
+        'bowlingTeamId': state.bowlingTeamId,
+      });
+    }
   }
 
   Stream<LiveMatchState?> watchLiveState(String matchId) {

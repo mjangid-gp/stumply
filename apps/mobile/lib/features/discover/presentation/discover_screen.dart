@@ -43,6 +43,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           CrickGradientHeader(
             title: 'Discover',
             subtitle: 'Find players, teams & tournaments',
+            leading: const DrawerMenuButton(),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(

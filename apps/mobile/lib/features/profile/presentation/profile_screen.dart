@@ -38,6 +38,7 @@ class ProfileScreen extends ConsumerWidget {
                     child: CrickGradientHeader(
                       title: profile.displayName,
                       subtitle: profile.city.isNotEmpty ? profile.city : 'Cricket Player',
+                      leading: const DrawerMenuButton(),
                       trailing: [
                         IconButton(
                           icon: const Icon(Icons.notifications_outlined, color: Colors.white),

@@ -171,6 +171,7 @@ class ScoringEngine {
         wickets = 0;
         overs = 0;
         ballsInOver = 0;
+        innings = 2;
       } else if (innNum == 2) {
         if (target != null && runs >= target) {
           result = 'Batting team won by ${config.playersPerSide - 1 - wickets} wickets';

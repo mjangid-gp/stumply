@@ -1,5 +1,6 @@
 class AppConstants {
-  static const appName = 'Crick';
+  static const appName = 'Stumply';
+  static const appTagline = 'Score. Stream. Celebrate.';
   static const defaultOvers = 20;
   static const supportPhone = '+91-8141665555';
   static const deepLinkScheme = 'crick';

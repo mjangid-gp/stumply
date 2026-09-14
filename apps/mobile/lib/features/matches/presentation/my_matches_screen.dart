@@ -21,6 +21,7 @@ class MyMatchesScreen extends ConsumerWidget {
           CrickGradientHeader(
             title: 'My Cricket',
             subtitle: 'Your matches, teams & scores',
+            leading: const DrawerMenuButton(),
             trailing: [
               IconButton(
                 icon: const Icon(Icons.groups_outlined, color: Colors.white),

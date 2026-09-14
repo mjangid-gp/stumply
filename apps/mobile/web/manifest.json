@@ -1,11 +1,11 @@
 {
-    "name": "crick_app",
-    "short_name": "crick_app",
+    "name": "Stumply",
+    "short_name": "Stumply",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1B4332",
+    "theme_color": "#1B4332",
+    "description": "Score cricket matches, stream live, and manage tournaments.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

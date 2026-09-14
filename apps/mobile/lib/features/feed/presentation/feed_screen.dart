@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../../../shared/widgets/crick_ui.dart';
 import '../data/feed_repository.dart';
 
 class FeedScreen extends ConsumerStatefulWidget {
@@ -43,7 +44,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cricket Feed')),
+      appBar: AppBar(
+        leading: const DrawerMenuButton(iconColor: Colors.white),
+        title: const Text('Cricket Feed'),
+      ),
       body: Column(
         children: [
           Expanded(

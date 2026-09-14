@@ -18,6 +18,7 @@ class TournamentsScreen extends ConsumerWidget {
           const CrickGradientHeader(
             title: 'Tournaments',
             subtitle: 'Organize leagues & track standings',
+            leading: DrawerMenuButton(),
           ),
           Expanded(
             child: StreamBuilder(

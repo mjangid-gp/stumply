@@ -15,6 +15,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scoring/presentation/live_score_screen.dart';
 import '../../features/scoring/presentation/scoring_screen.dart';
 import '../../features/store/presentation/store_screen.dart';
+import '../../features/streaming/presentation/broadcast_hub_screen.dart';
 import '../../features/streaming/presentation/streaming_screen.dart';
 import '../../features/subscription/presentation/pro_screen.dart';
 import '../../features/teams/presentation/create_team_screen.dart';
@@ -67,6 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/profile',
             builder: (_, __) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/broadcast',
+            builder: (_, __) => const BroadcastHubScreen(),
           ),
         ],
       ),

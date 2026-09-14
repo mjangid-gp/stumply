@@ -231,6 +231,33 @@ void main() {
     });
   });
 
+  group('Second innings', () {
+    test('transitions to innings 2 after first innings completes', () {
+      final engine = ScoringEngine(config: _config(overs: 1));
+      for (var i = 0; i < 6; i++) {
+        engine.recordBall(
+          strikerId: 'p1',
+          nonStrikerId: 'p2',
+          bowlerId: 'b1',
+          runsOffBat: 1,
+        );
+      }
+      expect(engine.state.currentInnings, 2);
+      expect(engine.state.totalRuns, 0);
+      expect(engine.state.target, 7);
+
+      engine.recordBall(
+        strikerId: 'p3',
+        nonStrikerId: 'p4',
+        bowlerId: 'b2',
+        runsOffBat: 4,
+      );
+      expect(engine.state.currentInnings, 2);
+      expect(engine.state.totalRuns, 4);
+      expect(engine.events.last.inningsNumber, 2);
+    });
+  });
+
   group('fromEvents rebuild', () {
     test('rebuilds state from event list', () {
       final config = _config();
