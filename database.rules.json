@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "liveMatches": {
+      "$matchId": {
+        ".read": true,
+        "events": {
+          "$seq": {
+            ".write": "auth != null && (
+              root.child('liveMatches').child($matchId).child('scorerId').val() === auth.uid ||
+              !root.child('liveMatches').child($matchId).child('scorerId').exists()
+            )",
+            ".validate": "newData.hasChildren(['sequence', 'inningsNumber', 'bowlerId', 'strikerId'])"
+          }
+        },
+        "state": {
+          ".write": false
+        },
+        "scorerId": {
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}

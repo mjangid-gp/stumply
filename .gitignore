@@ -1,0 +1,39 @@
+# Flutter
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
+
+# Firebase
+**/.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+database-debug.log
+storage-debug.log
+ui-debug.log
+pubsub-debug.log
+
+# Node
+**/node_modules/
+functions/lib/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+**/*.env
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart.bak
+
+# Admin
+apps/admin/build/

@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /teams/{teamId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        (resource.data.captainId == request.auth.uid ||
+         resource.data.createdBy == request.auth.uid ||
+         isAdmin());
+    }
+
+    match /teams/{teamId}/members/{memberId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (resource.data.scorerId == request.auth.uid ||
+         resource.data.createdBy == request.auth.uid ||
+         isAdmin());
+      allow delete: if isAdmin();
+
+      match /innings/{inningsId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        (resource.data.organizerId == request.auth.uid || isAdmin());
+    }
+
+    match /grounds/{groundId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /feedPosts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isSignedIn() &&
+        request.resource.data.followerId == request.auth.uid;
+    }
+
+    match /lookingFor/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        resource.data.authorId == request.auth.uid;
+    }
+
+    match /notifications/{userId}/items/{itemId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /associations/{associationId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /badges/{badgeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /rankings/{rankingId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
