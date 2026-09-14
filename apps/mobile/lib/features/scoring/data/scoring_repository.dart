@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scoring_engine/scoring_engine.dart';
@@ -70,9 +71,15 @@ class ScoringRepository {
     final connectivity = await _connectivity.checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) return;
 
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
     final pending = await _localDb.getUnsyncedEvents(matchId);
     final ref = _rtdb.ref('liveMatches/$matchId');
-    await ref.child('scorerId').set(matchId);
+    final scorerSnap = await ref.child('scorerId').get();
+    if (!scorerSnap.exists) {
+      await ref.child('scorerId').set(userId);
+    }
 
     for (final event in pending) {
       await ref.child('events/${event.sequence}').set(event.toJson());

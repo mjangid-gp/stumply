@@ -7,16 +7,25 @@
           "$seq": {
             ".write": "auth != null && (
               root.child('liveMatches').child($matchId).child('scorerId').val() === auth.uid ||
-              !root.child('liveMatches').child($matchId).child('scorerId').exists()
+              !root.child('liveMatches').child($matchId).child('scorerId').exists() ||
+              root.child('liveMatches').child($matchId).child('scorerId').val() === $matchId
             )",
             ".validate": "newData.hasChildren(['sequence', 'inningsNumber', 'bowlerId', 'strikerId'])"
           }
         },
         "state": {
-          ".write": false
+          ".write": "auth != null && (
+            root.child('liveMatches').child($matchId).child('scorerId').val() === auth.uid ||
+            !root.child('liveMatches').child($matchId).child('scorerId').exists() ||
+            root.child('liveMatches').child($matchId).child('scorerId').val() === $matchId
+          )"
         },
         "scorerId": {
-          ".write": "auth != null"
+          ".write": "auth != null && (
+            !root.child('liveMatches').child($matchId).child('scorerId').exists() ||
+            root.child('liveMatches').child($matchId).child('scorerId').val() === auth.uid ||
+            root.child('liveMatches').child($matchId).child('scorerId').val() === $matchId
+          )"
         }
       }
     }
