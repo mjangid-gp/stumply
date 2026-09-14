@@ -37,11 +37,21 @@ jobs:
           flutter build web --release
         working-directory: apps/admin
 
-      - name: Deploy to Firebase
+      - name: Deploy rules and hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
           firebase deploy \
-            --only firestore,database,functions,hosting \
+            --only firestore,database,hosting \
+            --project papakejamanekegaane \
+            --non-interactive
+
+      - name: Deploy Cloud Functions (requires Blaze plan)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        continue-on-error: true
+        run: |
+          firebase deploy \
+            --only functions \
             --project papakejamanekegaane \
             --non-interactive
