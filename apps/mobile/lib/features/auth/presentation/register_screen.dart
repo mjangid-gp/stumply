@@ -56,7 +56,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  Future<void> _register() async {
+  Future<void> _registerWithOtp() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_otpSent) {
       setState(() => _error = 'Please verify your email with the OTP first.');
@@ -83,6 +83,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  Future<void> _registerDirect() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ref.read(authRepositoryProvider).registerWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _nameController.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully')),
+        );
+        context.go('/');
+      }
+    } catch (e) {
+      setState(() => _error = friendlyAuthError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,7 +123,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'We will send a one-time code to your email to verify your account.',
+                'Create your account now, or verify with an email OTP when available.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 28),
@@ -194,30 +217,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ErrorBanner(message: _error!),
               ],
               const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: _loading ? null : _registerDirect,
+                child: _loading
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Create Account'),
+              ),
+              const SizedBox(height: 12),
               if (!_otpSent)
-                ElevatedButton(
+                OutlinedButton(
                   onPressed: _loading ? null : _sendOtp,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Send Email OTP'),
+                  child: const Text('Send Email OTP (optional)'),
                 )
               else ...[
-                ElevatedButton(
-                  onPressed: _loading ? null : _register,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Verify OTP & Create Account'),
+                OutlinedButton(
+                  onPressed: _loading ? null : _registerWithOtp,
+                  child: const Text('Verify OTP & Create Account'),
                 ),
                 const SizedBox(height: 10),
-                OutlinedButton(
+                TextButton(
                   onPressed: _loading ? null : _sendOtp,
                   child: const Text('Resend OTP'),
                 ),

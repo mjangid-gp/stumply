@@ -2,6 +2,22 @@
 
 Use this if `auth.firebase.tools` shows "Missing required parameters".
 
+## Step 0 — Enable Authentication (REQUIRED)
+
+**Without this step, login, register, Google sign-in, and OTP will all fail.**
+
+1. Open https://console.firebase.google.com/project/papakejamanekegaane/authentication
+2. Click **Get started**
+3. Open **Sign-in method** tab
+4. Enable **Email/Password**
+5. Enable **Google** (add support email when prompted)
+
+Verify from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\verify-auth-setup.ps1
+```
+
 ## Step 1 — Add Android app in Firebase Console
 
 1. Open https://console.firebase.google.com/project/papakejamanekegaane/settings/general

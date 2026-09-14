@@ -10,4 +10,8 @@ class AppConstants {
 
   /// Set true after Play Store / Play Integrity is configured.
   static const enableAppCheck = false;
+
+  /// Web OAuth client ID from Firebase Console (Project settings → Your apps → Web app).
+  /// Required for Google Sign-In on Android. Populated after enabling Google auth.
+  static const googleWebClientId = '';
 }

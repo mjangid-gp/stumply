@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../shared/models/user_profile.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -82,8 +83,15 @@ class AuthRepository {
     return result;
   }
 
+  GoogleSignIn _createGoogleSignIn() {
+    if (AppConstants.googleWebClientId.isNotEmpty) {
+      return GoogleSignIn(serverClientId: AppConstants.googleWebClientId);
+    }
+    return GoogleSignIn();
+  }
+
   Future<UserCredential> signInWithGoogle() async {
-    _googleSignIn ??= GoogleSignIn();
+    _googleSignIn ??= _createGoogleSignIn();
     final googleUser = await _googleSignIn!.signIn();
     if (googleUser == null) throw Exception('Google sign-in cancelled');
     final googleAuth = await googleUser.authentication;
@@ -111,11 +119,16 @@ class AuthRepository {
     String displayName,
   ) async {
     final result = await _auth.createUserWithEmailAndPassword(
-      email: email,
+      email: email.trim().toLowerCase(),
       password: password,
     );
-    await result.user!.updateDisplayName(displayName);
-    await _ensureUserDoc(result.user!, displayName: displayName);
+    await result.user!.updateDisplayName(displayName.trim());
+    try {
+      await result.user!.sendEmailVerification();
+    } catch (_) {
+      // Verification email is optional when SMTP is not configured.
+    }
+    await _ensureUserDoc(result.user!, displayName: displayName.trim());
     return result;
   }
 

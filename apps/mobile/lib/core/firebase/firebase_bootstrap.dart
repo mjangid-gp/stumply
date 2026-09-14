@@ -17,7 +17,7 @@ class FirebaseBootstrap {
   /// Set via --dart-define=USE_FIREBASE_EMULATORS=true for local dev only.
   static const bool _useEmulatorsInDebug = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static Future<void> initialize() async {
