@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/crick_ui.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../matches/data/match_repository.dart';

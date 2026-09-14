@@ -121,7 +121,7 @@ class ScoringEngine {
     var nonStriker = _events.first.nonStrikerId;
     var bowler = _events.first.bowlerId;
     var isFreeHit = false;
-    var target;
+    int? target;
     final inningsScorecards = <InningsScorecard>[];
     String? result;
     var status = MatchStatus.inProgress;
