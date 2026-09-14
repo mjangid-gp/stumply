@@ -4,6 +4,8 @@ import { onValueWritten } from 'firebase-functions/v2/database';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 
+export { sendRegistrationOtp, registerWithEmailOtp } from './email-otp';
+
 admin.initializeApp();
 setGlobalOptions({ region: 'asia-south1', maxInstances: 10 });
 

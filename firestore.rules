@@ -116,5 +116,9 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    match /emailVerificationOtps/{email} {
+      allow read, write: if false;
+    }
   }
 }

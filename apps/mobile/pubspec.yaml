@@ -1,7 +1,7 @@
 name: crick_app
 description: Stumply - score cricket matches, stream live, and manage tournaments.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.2

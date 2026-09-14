@@ -36,8 +36,12 @@ class FirebaseBootstrap {
             appleProvider: AppleProvider.appAttest,
           );
         }
-        FlutterError.onError =
-            FirebaseCrashlytics.instance.recordFlutterFatalError;
+        try {
+          FlutterError.onError =
+              FirebaseCrashlytics.instance.recordFlutterFatalError;
+        } catch (e) {
+          debugPrint('Crashlytics setup skipped: $e');
+        }
       }
 
       initialized = true;

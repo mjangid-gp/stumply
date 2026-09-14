@@ -9,7 +9,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseBootstrap.initialize();
   if (!kIsWeb) {
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.initialize();
+    } catch (e) {
+      debugPrint('AdMob init skipped: $e');
+    }
   }
   runApp(const ProviderScope(child: CrickApp()));
 }

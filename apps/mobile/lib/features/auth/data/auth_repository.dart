@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -8,6 +9,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     auth: FirebaseAuth.instance,
     firestore: FirebaseFirestore.instance,
+    functions: FirebaseFunctions.instanceFor(region: 'asia-south1'),
   );
 });
 
@@ -25,15 +27,47 @@ class AuthRepository {
   AuthRepository({
     required FirebaseAuth auth,
     required FirebaseFirestore firestore,
+    required FirebaseFunctions functions,
   })  : _auth = auth,
-        _firestore = firestore;
+        _firestore = firestore,
+        _functions = functions;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
   GoogleSignIn? _googleSignIn;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   User? get currentUser => _auth.currentUser;
+
+  Future<void> sendRegistrationOtp({
+    required String email,
+    required String displayName,
+  }) async {
+    await _functions.httpsCallable('sendRegistrationOtp').call({
+      'email': email.trim().toLowerCase(),
+      'displayName': displayName.trim(),
+    });
+  }
+
+  Future<UserCredential> registerWithEmailOtp({
+    required String email,
+    required String password,
+    required String displayName,
+    required String otp,
+  }) async {
+    final result = await _functions.httpsCallable('registerWithEmailOtp').call({
+      'email': email.trim().toLowerCase(),
+      'password': password,
+      'displayName': displayName.trim(),
+      'otp': otp.trim(),
+    });
+
+    final token = (result.data as Map)['token'] as String;
+    final credential = await _auth.signInWithCustomToken(token);
+    await _ensureUserDoc(credential.user!, displayName: displayName);
+    return credential;
+  }
 
   Future<UserCredential> verifyPhoneOtp({
     required String verificationId,
