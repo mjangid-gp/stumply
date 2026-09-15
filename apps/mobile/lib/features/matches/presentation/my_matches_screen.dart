@@ -30,6 +30,23 @@ class MyMatchesScreen extends ConsumerWidget {
               ),
             ],
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push('/highlights/hanga'),
+                icon: const Icon(Icons.play_circle_fill),
+                label: const Text('Hanga Highlight'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.primaryDark,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: user == null
                 ? const EmptyStateView(

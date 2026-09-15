@@ -6,6 +6,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/feed/presentation/feed_screen.dart';
+import '../../features/highlights/presentation/hanga_highlight_screen.dart';
 import '../../features/matches/presentation/create_match_screen.dart';
 import '../../features/matches/presentation/match_detail_screen.dart';
 import '../../features/matches/presentation/my_matches_screen.dart';
@@ -140,6 +141,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/highlights/hanga',
+        builder: (_, __) => const HangaHighlightScreen(),
       ),
     ],
   );
