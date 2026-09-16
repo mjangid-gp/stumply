@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/models/user_profile.dart';
 
@@ -22,34 +25,48 @@ class ProfileRepository {
   final FirebaseStorage _storage;
 
   Future<void> updateProfile(String uid, UserProfile profile) async {
-    await _firestore.collection('users').doc(uid).update(profile.toMap());
+    await _firestore.collection('users').doc(uid).set(
+      profile.toMap(),
+      SetOptions(merge: true),
+    );
     await _firestore.collection('players').doc(uid).set({
       'displayName': profile.displayName,
       'city': profile.city,
       'battingStyle': profile.battingStyle,
       'bowlingStyle': profile.bowlingStyle,
+      'photoUrl': profile.photoUrl,
     }, SetOptions(merge: true));
   }
 
-  Future<String?> uploadPhoto(String uid, Uint8List bytes) async {
-    final ref = _storage.ref().child('users/$uid/avatar.jpg');
-    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    return await ref.getDownloadURL();
+  Future<void> updatePhotoUrl(String uid, String photoUrl) async {
+    await _firestore.collection('users').doc(uid).set(
+      {'photoUrl': photoUrl},
+      SetOptions(merge: true),
+    );
+    await _firestore.collection('players').doc(uid).set(
+      {'photoUrl': photoUrl},
+      SetOptions(merge: true),
+    );
   }
 
-  Stream<Map<String, dynamic>> watchPlayerStats(String uid) {
-    return _firestore.collection('players').doc(uid).snapshots().map((snap) {
-      return snap.data() ?? {};
-    });
-  }
+  Future<String> saveGalleryPhoto(String uid, Uint8List bytes) async {
+    var photoBytes = bytes;
+    if (photoBytes.lengthInBytes > 220000) {
+      throw Exception('Photo is too large. Choose a smaller image.');
+    }
 
-  Future<List<Map<String, dynamic>>> getMatchHistory(String uid) async {
-    final snap = await _firestore
-        .collection('matches')
-        .where('teamAPlayers', arrayContains: uid)
-        .orderBy('scheduledAt', descending: true)
-        .limit(20)
-        .get();
-    return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    if (!kIsWeb) {
+      try {
+        final ref = _storage.ref().child('users/$uid/avatar.jpg');
+        await ref
+            .putData(photoBytes, SettableMetadata(contentType: 'image/jpeg'))
+            .timeout(const Duration(seconds: 8));
+        return await ref.getDownloadURL().timeout(const Duration(seconds: 8));
+      } catch (error) {
+        debugPrint('Storage upload failed, saving photo in profile: $error');
+      }
+    }
+
+    return 'data:image/jpeg;base64,${base64Encode(photoBytes)}';
   }
 }

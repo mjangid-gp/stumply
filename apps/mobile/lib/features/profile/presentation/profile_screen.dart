@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/crick_ui.dart';
+import '../../../shared/widgets/cricket_avatar.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../analytics/data/analytics_repository.dart';
@@ -28,9 +29,6 @@ class ProfileScreen extends ConsumerWidget {
             future: ref.read(analyticsRepositoryProvider).getPlayerAnalytics(user.uid),
             builder: (context, snapshot) {
               final analytics = snapshot.data;
-              final initial = profile.displayName.isNotEmpty
-                  ? profile.displayName[0].toUpperCase()
-                  : '?';
 
               return CustomScrollView(
                 slivers: [
@@ -51,13 +49,10 @@ class ProfileScreen extends ConsumerWidget {
                       ],
                       child: Row(
                         children: [
-                          CircleAvatar(
+                          CricketAvatar(
+                            photoUrl: profile.photoUrl,
                             radius: 36,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
-                            backgroundImage: profile.photoUrl != null ? NetworkImage(profile.photoUrl!) : null,
-                            child: profile.photoUrl == null
-                                ? Text(initial, style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold))
-                                : null,
+                            name: profile.displayName,
                           ),
                           const SizedBox(width: 16),
                           if (profile.isPro)

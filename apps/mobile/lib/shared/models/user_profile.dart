@@ -63,6 +63,7 @@ class UserProfile {
   UserProfile copyWith({
     String? displayName,
     String? photoUrl,
+    bool clearPhoto = false,
     String? city,
     String? bio,
     String? battingStyle,
@@ -74,7 +75,7 @@ class UserProfile {
       displayName: displayName ?? this.displayName,
       email: email,
       phone: phone,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoUrl: clearPhoto ? null : (photoUrl ?? this.photoUrl),
       city: city ?? this.city,
       bio: bio ?? this.bio,
       battingStyle: battingStyle ?? this.battingStyle,

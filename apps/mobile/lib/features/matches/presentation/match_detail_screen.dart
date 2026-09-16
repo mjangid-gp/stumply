@@ -134,6 +134,12 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
+                          onPressed: () => context.push('/streaming/${widget.matchId}'),
+                          icon: const Icon(Icons.videocam_outlined),
+                          label: const Text('Open Broadcast'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
                           onPressed: () => context.push('/matches/${widget.matchId}/live'),
                           icon: const Icon(Icons.visibility_outlined),
                           label: const Text('View Live Score'),

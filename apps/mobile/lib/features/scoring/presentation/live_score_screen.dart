@@ -39,6 +39,14 @@ class LiveScoreScreen extends ConsumerWidget {
                       if (live.requiredRunRate != null)
                         Text('Required RR: ${live.requiredRunRate!.toStringAsFixed(2)}'),
                     ],
+                    if (live != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Striker ${live.strikerId} · Non-striker ${live.nonStrikerId}',
+                        textAlign: TextAlign.center,
+                      ),
+                      Text('Bowler ${live.bowlerId}'),
+                    ],
                     const Spacer(),
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,

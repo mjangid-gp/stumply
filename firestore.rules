@@ -120,5 +120,15 @@ service cloud.firestore {
     match /emailVerificationOtps/{email} {
       allow read, write: if false;
     }
+
+    match /youtubeStreams/{streamId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.videoId is string
+        && request.resource.data.videoId.size() > 7;
+      allow update, delete: if isSignedIn() &&
+        (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
   }
 }
