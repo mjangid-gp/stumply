@@ -106,9 +106,13 @@ class CricketAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           width: size,
           height: size,
-          errorBuilder: (_, __, ___) => ColoredBox(
+          errorBuilder: (_, _, _) => ColoredBox(
             color: const Color(0xFF1B4332),
-            child: Icon(Icons.sports_cricket, color: Colors.white, size: radius),
+            child: Icon(
+              Icons.sports_cricket,
+              color: Colors.white,
+              size: radius,
+            ),
           ),
         ),
       );
@@ -133,10 +137,17 @@ class CricketAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           width: size,
           height: size,
-          errorBuilder: (_, __, ___) => ColoredBox(
+          errorBuilder: (_, _, _) => ColoredBox(
             color: const Color(0xFF1B4332),
             child: Center(
-              child: Text(initial, style: TextStyle(color: Colors.white, fontSize: radius * 0.75, fontWeight: FontWeight.bold)),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: radius * 0.75,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/match_helpers.dart';
 import '../../../shared/widgets/crick_ui.dart';
-import '../../../shared/models/match_model.dart';
 import '../data/match_repository.dart';
 
 class MatchDetailScreen extends ConsumerStatefulWidget {
@@ -30,6 +30,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           final match = snapshot.data;
           if (match == null) {
             return const EmptyStateView(
@@ -45,9 +46,14 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
             children: [
               CrickGradientHeader(
                 title: '${match.teamAName} vs ${match.teamBName}',
-                subtitle: match.ground.isNotEmpty ? match.ground : '${match.totalOvers} overs',
+                subtitle: match.ground.isNotEmpty
+                    ? match.ground
+                    : '${match.totalOvers} overs',
                 child: match.isLive
-                    ? const Align(alignment: Alignment.centerLeft, child: LiveBadge())
+                    ? const Align(
+                        alignment: Alignment.centerLeft,
+                        child: LiveBadge(),
+                      )
                     : null,
               ),
               Expanded(
@@ -58,21 +64,52 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       CrickCard(
                         child: Column(
                           children: [
-                            _InfoRow(label: 'Status', value: _statusLabel(match.status)),
+                            _InfoRow(
+                              label: 'Status',
+                              value: _statusLabel(match.status),
+                            ),
                             const Divider(),
-                            _InfoRow(label: 'Format', value: '${match.totalOvers} overs'),
+                            _InfoRow(
+                              label: 'Format',
+                              value: '${match.totalOvers} overs',
+                            ),
+                            const Divider(),
+                            _InfoRow(
+                              label: 'Players',
+                              value: match.hasCompleteSquads
+                                  ? '22 selected'
+                                  : '${match.teamAPlayers.length} + ${match.teamBPlayers.length} selected',
+                            ),
                             if (match.tossWinnerId != null) ...[
                               const Divider(),
-                              _InfoRow(label: 'Toss', value: tossSummary(match)),
+                              _InfoRow(
+                                label: 'Toss',
+                                value: tossSummary(match),
+                              ),
                             ],
                             if (match.result != null) ...[
                               const Divider(),
-                              _InfoRow(label: 'Result', value: match.result!, highlight: true),
+                              _InfoRow(
+                                label: 'Result',
+                                value: match.result!,
+                                highlight: true,
+                              ),
                             ],
                           ],
                         ),
                       ),
                       if (match.status == 'scheduled') ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.push('/matches/${widget.matchId}/squad'),
+                          icon: const Icon(Icons.groups_2_outlined),
+                          label: Text(
+                            match.hasCompleteSquads
+                                ? 'Edit Playing XI'
+                                : 'Select Playing XI',
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         CrickCard(
                           child: Column(
@@ -80,34 +117,58 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                             children: [
                               Text(
                                 'Toss',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'Who won the toss and what did they choose?',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: AppColors.textSecondary),
                               ),
                               const SizedBox(height: 16),
-                              Text('Toss winner', style: Theme.of(context).textTheme.labelLarge),
+                              Text(
+                                'Toss winner',
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
                               const SizedBox(height: 8),
                               SegmentedButton<String>(
                                 segments: [
-                                  ButtonSegment(value: match.teamAId, label: Text(match.teamAName)),
-                                  ButtonSegment(value: match.teamBId, label: Text(match.teamBName)),
+                                  ButtonSegment(
+                                    value: match.teamAId,
+                                    label: Text(match.teamAName),
+                                  ),
+                                  ButtonSegment(
+                                    value: match.teamBId,
+                                    label: Text(match.teamBName),
+                                  ),
                                 ],
                                 selected: {_tossWinnerId!},
-                                onSelectionChanged: (s) => setState(() => _tossWinnerId = s.first),
+                                onSelectionChanged: (s) =>
+                                    setState(() => _tossWinnerId = s.first),
                               ),
                               const SizedBox(height: 16),
-                              Text('Elected to', style: Theme.of(context).textTheme.labelLarge),
+                              Text(
+                                'Elected to',
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
                               const SizedBox(height: 8),
                               SegmentedButton<String>(
                                 segments: const [
-                                  ButtonSegment(value: 'bat', label: Text('Bat'), icon: Icon(Icons.sports_cricket)),
-                                  ButtonSegment(value: 'bowl', label: Text('Bowl'), icon: Icon(Icons.sports_baseball)),
+                                  ButtonSegment(
+                                    value: 'bat',
+                                    label: Text('Bat'),
+                                    icon: Icon(Icons.sports_cricket),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'bowl',
+                                    label: Text('Bowl'),
+                                    icon: Icon(Icons.sports_baseball),
+                                  ),
                                 ],
                                 selected: {_tossDecision},
-                                onSelectionChanged: (s) => setState(() => _tossDecision = s.first),
+                                onSelectionChanged: (s) =>
+                                    setState(() => _tossDecision = s.first),
                               ),
                             ],
                           ),
@@ -116,31 +177,45 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       const Spacer(),
                       if (match.status == 'scheduled')
                         ElevatedButton.icon(
-                          onPressed: _starting ? null : () => _startMatch(context, match),
+                          onPressed: _starting || !match.hasCompleteSquads
+                              ? null
+                              : () => _startMatch(context),
                           icon: _starting
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.play_arrow),
-                          label: Text(_starting ? 'Starting...' : 'Start Match & Score'),
+                          label: Text(
+                            _starting
+                                ? 'Starting...'
+                                : match.hasCompleteSquads
+                                ? 'Start Match & Score'
+                                : 'Select 11 Players First',
+                          ),
                         ),
                       if (match.isLive) ...[
                         ElevatedButton.icon(
-                          onPressed: () => context.push('/matches/${widget.matchId}/score'),
+                          onPressed: () =>
+                              context.push('/matches/${widget.matchId}/score'),
                           icon: const Icon(Icons.sports_cricket),
                           label: const Text('Continue Scoring'),
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
-                          onPressed: () => context.push('/streaming/${widget.matchId}'),
+                          onPressed: () =>
+                              context.push('/streaming/${widget.matchId}'),
                           icon: const Icon(Icons.videocam_outlined),
                           label: const Text('Open Broadcast'),
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
-                          onPressed: () => context.push('/matches/${widget.matchId}/live'),
+                          onPressed: () =>
+                              context.push('/matches/${widget.matchId}/live'),
                           icon: const Icon(Icons.visibility_outlined),
                           label: const Text('View Live Score'),
                         ),
@@ -156,15 +231,27 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     );
   }
 
-  Future<void> _startMatch(BuildContext context, MatchModel match) async {
+  Future<void> _startMatch(BuildContext context) async {
     setState(() => _starting = true);
+
     try {
-      await ref.read(matchRepositoryProvider).startMatch(
-        widget.matchId,
-        tossWinnerId: _tossWinnerId!,
-        tossDecision: _tossDecision,
-      );
-      if (context.mounted) context.push('/matches/${widget.matchId}/score');
+      await ref
+          .read(matchRepositoryProvider)
+          .startMatch(
+            widget.matchId,
+            tossWinnerId: _tossWinnerId!,
+            tossDecision: _tossDecision,
+          );
+
+      if (context.mounted) {
+        context.push('/matches/${widget.matchId}/score');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not start match: $e')));
+      }
     } finally {
       if (mounted) setState(() => _starting = false);
     }
@@ -185,7 +272,12 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.highlight = false});
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
   final String label;
   final String value;
   final bool highlight;

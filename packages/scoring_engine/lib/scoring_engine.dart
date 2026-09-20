@@ -1,4 +1,4 @@
-library scoring_engine;
+library;
 
 export 'src/models/ball_event.dart';
 export 'src/models/extra_type.dart';

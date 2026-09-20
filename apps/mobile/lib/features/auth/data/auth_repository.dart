@@ -26,12 +26,10 @@ final currentUserProfileProvider = StreamProvider<UserProfile?>((ref) {
 
 class AuthRepository {
   AuthRepository({
-    required FirebaseAuth auth,
+    required this._auth,
     required FirebaseFirestore firestore,
-    required FirebaseFunctions functions,
-  })  : _auth = auth,
-        _firestore = firestore,
-        _functions = functions;
+    required this._functions,
+  }) : _firestore = firestore;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;

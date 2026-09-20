@@ -8,8 +8,7 @@ final teamRepositoryProvider = Provider<TeamRepository>((ref) {
 });
 
 class TeamRepository {
-  TeamRepository({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+  TeamRepository({required this._firestore});
 
   final FirebaseFirestore _firestore;
   final _uuid = const Uuid();
@@ -50,8 +49,9 @@ class TeamRepository {
         .collection('teams')
         .where('memberIds', arrayContains: userId)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => Team.fromMap(d.id, d.data())).toList());
+        .map(
+          (snap) => snap.docs.map((d) => Team.fromMap(d.id, d.data())).toList(),
+        );
   }
 
   Future<void> addMember(String teamId, String userId) async {

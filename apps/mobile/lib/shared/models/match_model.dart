@@ -16,6 +16,12 @@ class MatchModel {
     this.result,
     this.teamAPlayers = const [],
     this.teamBPlayers = const [],
+    this.teamASubstitutePlayers = const [],
+    this.teamBSubstitutePlayers = const [],
+    this.captainAId,
+    this.captainBId,
+    this.wicketkeeperAId,
+    this.wicketkeeperBId,
     this.tossWinnerId,
     this.tossDecision,
   });
@@ -34,13 +40,25 @@ class MatchModel {
   final DateTime? scheduledAt;
   final Map<String, dynamic>? liveScore;
   final String? result;
+
   final List<String> teamAPlayers;
   final List<String> teamBPlayers;
+  final List<String> teamASubstitutePlayers;
+  final List<String> teamBSubstitutePlayers;
+
+  final String? captainAId;
+  final String? captainBId;
+  final String? wicketkeeperAId;
+  final String? wicketkeeperBId;
+
   final String? tossWinnerId;
   final String? tossDecision;
 
   bool get isLive => status == 'in_progress';
   bool get isCompleted => status == 'completed';
+
+  bool get hasCompleteSquads =>
+      teamAPlayers.length == 11 && teamBPlayers.length == 11;
 
   factory MatchModel.fromMap(String id, Map<String, dynamic> data) {
     return MatchModel(
@@ -58,10 +76,20 @@ class MatchModel {
       scheduledAt: data['scheduledAt'] != null
           ? DateTime.tryParse(data['scheduledAt'].toString())
           : null,
-      liveScore: data['liveScore'] as Map<String, dynamic>?,
+      liveScore: data['liveScore'] is Map
+          ? Map<String, dynamic>.from(data['liveScore'] as Map)
+          : null,
       result: data['result'] as String?,
-      teamAPlayers: List<String>.from(data['teamAPlayers'] ?? []),
-      teamBPlayers: List<String>.from(data['teamBPlayers'] ?? []),
+      teamAPlayers: List<String>.from(data['teamAPlayers'] ?? const []),
+      teamBPlayers: List<String>.from(data['teamBPlayers'] ?? const []),
+      teamASubstitutePlayers:
+          List<String>.from(data['teamASubstitutePlayers'] ?? const []),
+      teamBSubstitutePlayers:
+          List<String>.from(data['teamBSubstitutePlayers'] ?? const []),
+      captainAId: data['captainAId'] as String?,
+      captainBId: data['captainBId'] as String?,
+      wicketkeeperAId: data['wicketkeeperAId'] as String?,
+      wicketkeeperBId: data['wicketkeeperBId'] as String?,
       tossWinnerId: data['tossWinnerId'] as String?,
       tossDecision: data['tossDecision'] as String?,
     );
@@ -79,8 +107,16 @@ class MatchModel {
         'scorerId': scorerId,
         'createdBy': createdBy,
         'scheduledAt': scheduledAt?.toIso8601String(),
+        'liveScore': liveScore,
+        'result': result,
         'teamAPlayers': teamAPlayers,
         'teamBPlayers': teamBPlayers,
+        'teamASubstitutePlayers': teamASubstitutePlayers,
+        'teamBSubstitutePlayers': teamBSubstitutePlayers,
+        'captainAId': captainAId,
+        'captainBId': captainBId,
+        'wicketkeeperAId': wicketkeeperAId,
+        'wicketkeeperBId': wicketkeeperBId,
         'tossWinnerId': tossWinnerId,
         'tossDecision': tossDecision,
       };

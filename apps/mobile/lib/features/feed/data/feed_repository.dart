@@ -8,7 +8,7 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
 });
 
 class FeedRepository {
-  FeedRepository({required FirebaseFirestore firestore}) : _firestore = firestore;
+  FeedRepository({required this._firestore});
   final FirebaseFirestore _firestore;
 
   Stream<List<Map<String, dynamic>>> watchFeed() {
@@ -18,7 +18,9 @@ class FeedRepository {
         .orderBy('createdAt', descending: true)
         .limit(30)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+        .map(
+          (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
+        );
   }
 }
 
@@ -43,10 +45,11 @@ class LiveCricketMatch {
 }
 
 class LiveCricketRepository {
-  LiveCricketRepository({required http.Client client}) : _client = client;
+  LiveCricketRepository({required this._client});
 
   static const _leagueIds = ['8048', '8047', '8046', '8049', '8039'];
-  static const _baseUrl = 'https://site.api.espn.com/apis/site/v2/sports/cricket';
+  static const _baseUrl =
+      'https://site.api.espn.com/apis/site/v2/sports/cricket';
   final http.Client _client;
 
   Stream<List<LiveCricketMatch>> watchLiveMatches() async* {
@@ -57,7 +60,10 @@ class LiveCricketRepository {
   }
 
   Future<List<LiveCricketMatch>> fetchLiveMatches() async {
-    final results = await Future.wait(_leagueIds.map(_fetchLeague), eagerError: false);
+    final results = await Future.wait(
+      _leagueIds.map(_fetchLeague),
+      eagerError: false,
+    );
     final matches = results.expand((items) => items).toList();
     final seen = <String>{};
     return matches.where((match) => seen.add(match.id)).toList();
@@ -66,13 +72,20 @@ class LiveCricketRepository {
   Future<List<LiveCricketMatch>> _fetchLeague(String leagueId) async {
     try {
       final response = await _client
-          .get(Uri.parse('$_baseUrl/$leagueId/scoreboard'), headers: const {'Accept': 'application/json'})
+          .get(
+            Uri.parse('$_baseUrl/$leagueId/scoreboard'),
+            headers: const {'Accept': 'application/json'},
+          )
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return const [];
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final events = payload['events'];
       if (events is! List) return const [];
-      return events.whereType<Map<String, dynamic>>().where(_isLive).map(_toMatch).toList();
+      return events
+          .whereType<Map<String, dynamic>>()
+          .where(_isLive)
+          .map(_toMatch)
+          .toList();
     } catch (_) {
       return const [];
     }
@@ -89,19 +102,26 @@ class LiveCricketRepository {
   }
 
   LiveCricketMatch _toMatch(Map<String, dynamic> event) {
-    final competition = (event['competitions'] as List).first as Map<String, dynamic>;
+    final competition =
+        (event['competitions'] as List).first as Map<String, dynamic>;
     final competitors = (competition['competitors'] as List?) ?? const [];
-    final scores = competitors.whereType<Map<String, dynamic>>().map((competitor) {
+    final scores = competitors.whereType<Map<String, dynamic>>().map((
+      competitor,
+    ) {
       final team = competitor['team'] as Map<String, dynamic>?;
       final name = team?['shortDisplayName'] ?? team?['displayName'] ?? 'Team';
       return '$name ${competitor['score'] ?? '-'}';
     }).toList();
-    final venue = (competition['venue'] as Map<String, dynamic>?)?['fullName'] as String?;
+    final venue =
+        (competition['venue'] as Map<String, dynamic>?)?['fullName'] as String?;
     final status = competition['status'] as Map<String, dynamic>?;
     final statusType = status?['type'] as Map<String, dynamic>?;
     return LiveCricketMatch(
       id: '${event['id']}',
-      title: event['shortName'] as String? ?? event['name'] as String? ?? 'Cricket match',
+      title:
+          event['shortName'] as String? ??
+          event['name'] as String? ??
+          'Cricket match',
       status: statusType?['shortDetail'] as String? ?? 'Live',
       scores: scores,
       venue: venue,

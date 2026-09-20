@@ -148,7 +148,7 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: recentBalls.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
                         itemBuilder: (_, i) {
                           final ball = recentBalls[recentBalls.length - 1 - i];
                           return _BallChip(event: ball);
@@ -372,9 +372,7 @@ class _WicketChoice {
     required this.dismissedPlayerId,
     this.fielder,
     this.runsCompleted = 0,
-    this.extraType,
-    this.extraRuns = 0,
-  });
+  }) : extraType = null : extraRuns = 0;
 
   final WicketType type;
   final String dismissedPlayerId;

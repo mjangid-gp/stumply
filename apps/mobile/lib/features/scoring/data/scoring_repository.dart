@@ -15,12 +15,10 @@ final scoringRepositoryProvider = Provider<ScoringRepository>((ref) {
 
 class ScoringRepository {
   ScoringRepository({
-    required FirebaseDatabase rtdb,
+    required this._rtdb,
     required LocalScoringDatabase localDb,
-    required Connectivity connectivity,
-  })  : _rtdb = rtdb,
-        _localDb = localDb,
-        _connectivity = connectivity;
+    required this._connectivity,
+  }) : _localDb = localDb;
 
   final FirebaseDatabase _rtdb;
   final LocalScoringDatabase _localDb;
@@ -28,7 +26,10 @@ class ScoringRepository {
   final Map<String, ScoringEngine> _engines = {};
 
   ScoringEngine getEngine(MatchConfig config) {
-    return _engines.putIfAbsent(config.matchId, () => ScoringEngine(config: config));
+    return _engines.putIfAbsent(
+      config.matchId,
+      () => ScoringEngine(config: config),
+    );
   }
 
   Future<BallEvent> recordBall({

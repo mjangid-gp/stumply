@@ -13,10 +13,9 @@ final tournamentRepositoryProvider = Provider<TournamentRepository>((ref) {
 
 class TournamentRepository {
   TournamentRepository({
-    required FirebaseFirestore firestore,
+    required this._firestore,
     required FirebaseFunctions functions,
-  })  : _firestore = firestore,
-        _functions = functions;
+  }) : _functions = functions;
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
@@ -68,7 +67,9 @@ class TournamentRepository {
 
   Stream<List<Tournament>> watchTournaments() {
     return _firestore.collection('tournaments').snapshots().map((snap) {
-      final list = snap.docs.map((d) => Tournament.fromMap(d.id, d.data())).toList();
+      final list = snap.docs
+          .map((d) => Tournament.fromMap(d.id, d.data()))
+          .toList();
       list.sort((a, b) {
         final aDate = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bDate = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -91,12 +92,16 @@ class TournamentRepository {
     });
   }
 
-  Stream<List<Map<String, dynamic>>> watchTournamentMatches(String tournamentId) {
+  Stream<List<Map<String, dynamic>>> watchTournamentMatches(
+    String tournamentId,
+  ) {
     return _firestore
         .collection('matches')
         .where('tournamentId', isEqualTo: tournamentId)
         .orderBy('round')
         .snapshots()
-        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+        .map(
+          (snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList(),
+        );
   }
 }

@@ -34,8 +34,7 @@ class PlayerAnalytics {
 }
 
 class AnalyticsRepository {
-  AnalyticsRepository({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+  AnalyticsRepository({required this._firestore});
 
   final FirebaseFirestore _firestore;
 
@@ -74,7 +73,10 @@ class AnalyticsRepository {
     if (city != null) {
       query = query.where('city', isEqualTo: city);
     }
-    final snap = await query.orderBy('points', descending: true).limit(50).get();
+    final snap = await query
+        .orderBy('points', descending: true)
+        .limit(50)
+        .get();
     return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 }

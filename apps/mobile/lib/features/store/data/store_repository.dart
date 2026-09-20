@@ -26,18 +26,18 @@ class Product {
   final String category;
 
   factory Product.fromMap(String id, Map<String, dynamic> data) => Product(
-        id: id,
-        name: data['name'] as String? ?? '',
-        price: (data['price'] as num?)?.toDouble() ?? 0,
-        currency: data['currency'] as String? ?? 'INR',
-        imageUrl: data['imageUrl'] as String?,
-        description: data['description'] as String? ?? '',
-        category: data['category'] as String? ?? 'apparel',
-      );
+    id: id,
+    name: data['name'] as String? ?? '',
+    price: (data['price'] as num?)?.toDouble() ?? 0,
+    currency: data['currency'] as String? ?? 'INR',
+    imageUrl: data['imageUrl'] as String?,
+    description: data['description'] as String? ?? '',
+    category: data['category'] as String? ?? 'apparel',
+  );
 }
 
 class StoreRepository {
-  StoreRepository({required FirebaseFirestore firestore}) : _firestore = firestore;
+  StoreRepository({required this._firestore});
   final FirebaseFirestore _firestore;
   final _uuid = const Uuid();
 
@@ -45,8 +45,8 @@ class StoreRepository {
     Query<Map<String, dynamic>> query = _firestore.collection('products');
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.snapshots().map(
-          (snap) => snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList(),
-        );
+      (snap) => snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList(),
+    );
   }
 
   Future<String> createOrder({

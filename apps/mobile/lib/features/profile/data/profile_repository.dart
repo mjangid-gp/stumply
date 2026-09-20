@@ -16,19 +16,18 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 
 class ProfileRepository {
   ProfileRepository({
-    required FirebaseFirestore firestore,
+    required this._firestore,
     required FirebaseStorage storage,
-  })  : _firestore = firestore,
-        _storage = storage;
+  }) : _storage = storage;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
   Future<void> updateProfile(String uid, UserProfile profile) async {
-    await _firestore.collection('users').doc(uid).set(
-      profile.toMap(),
-      SetOptions(merge: true),
-    );
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .set(profile.toMap(), SetOptions(merge: true));
     await _firestore.collection('players').doc(uid).set({
       'displayName': profile.displayName,
       'city': profile.city,
@@ -39,14 +38,12 @@ class ProfileRepository {
   }
 
   Future<void> updatePhotoUrl(String uid, String photoUrl) async {
-    await _firestore.collection('users').doc(uid).set(
-      {'photoUrl': photoUrl},
-      SetOptions(merge: true),
-    );
-    await _firestore.collection('players').doc(uid).set(
-      {'photoUrl': photoUrl},
-      SetOptions(merge: true),
-    );
+    await _firestore.collection('users').doc(uid).set({
+      'photoUrl': photoUrl,
+    }, SetOptions(merge: true));
+    await _firestore.collection('players').doc(uid).set({
+      'photoUrl': photoUrl,
+    }, SetOptions(merge: true));
   }
 
   Future<String> saveGalleryPhoto(String uid, Uint8List bytes) async {
