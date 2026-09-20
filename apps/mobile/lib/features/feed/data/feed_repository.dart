@@ -17,7 +17,6 @@ final liveCricketRepositoryProvider = Provider<LiveCricketRepository>((ref) {
 
 class FeedRepository {
   FeedRepository({required this._firestore});
-
   final FirebaseFirestore _firestore;
 
   Stream<List<Map<String, dynamic>>> watchFeed() {
@@ -118,26 +117,23 @@ class CricketFeedSnapshot {
   final String? errorMessage;
 
   List<LiveCricketMatch> get liveMatches =>
-      matches.where((match) => match.isLive).toList();
-
+      matches.where((m) => m.isLive).toList();
   List<LiveCricketMatch> get upcomingMatches =>
-      matches.where((match) => match.isUpcoming).toList();
+      matches.where((m) => m.isUpcoming).toList();
 }
 
-/// Free, keyless cricket feed provider.
+/// Keyless ESPN-backed cricket feed.
 ///
-/// This uses public ESPN endpoints rather than a paid API key. ESPN's cricket
-/// endpoints are public/undocumented and can change, so this class is isolated
-/// behind a repository and can be replaced later without changing the UI.
+/// Important: ESPN's cricket site scoreboard endpoint is not reliable for
+/// cricket. We discover active series from the personalized header and use
+/// its event data, with the ESPN Core events API as a fallback.
 class LiveCricketRepository {
   LiveCricketRepository({required http.Client client}) : _client = client;
 
   final http.Client _client;
 
   static const _headerUrl =
-      'https://site.web.api.espn.com/apis/personalized/v2/scoreboard/header';
-  static const _scoreboardBaseUrl =
-      'https://site.api.espn.com/apis/site/v2/sports/cricket';
+      'https://site.api.espn.com/apis/personalized/v2/scoreboard/header';
   static const _coreEventsBaseUrl =
       'https://sports.core.api.espn.com/v2/sports/cricket/leagues';
 
@@ -146,19 +142,17 @@ class LiveCricketRepository {
 
   DateTime? _lastNewsFetch;
   List<CricketNewsArticle> _newsCache = const [];
+  CricketFeedSnapshot? _lastSnapshot;
 
   Stream<CricketFeedSnapshot> watchCricketFeed() async* {
-    CricketFeedSnapshot? lastSnapshot;
-
     while (true) {
       final snapshot = await fetchCricketFeed();
       if (snapshot.matches.isNotEmpty ||
           snapshot.news.isNotEmpty ||
-          lastSnapshot == null) {
-        lastSnapshot = snapshot;
+          _lastSnapshot == null) {
+        _lastSnapshot = snapshot;
       }
-
-      yield lastSnapshot ?? snapshot;
+      yield _lastSnapshot ?? snapshot;
       await Future<void>.delayed(_refreshInterval);
     }
   }
@@ -181,7 +175,7 @@ class LiveCricketRepository {
       );
     } catch (error) {
       return CricketFeedSnapshot(
-        matches: const [],
+        matches: _lastSnapshot?.matches ?? const [],
         news: _newsCache,
         updatedAt: DateTime.now(),
         errorMessage: 'Cricket feed temporarily unavailable.',
@@ -209,35 +203,50 @@ class LiveCricketRepository {
     if (sports is! List) return const [];
 
     final leagues = <_CricketLeague>[];
-    for (final sport in sports.whereType<Map<String, dynamic>>()) {
-      final sportName = '${sport['name'] ?? ''} ${sport['slug'] ?? ''}'
+    for (final sport in sports.whereType<Map>()) {
+      final sportMap = Map<String, dynamic>.from(sport);
+      final sportName = '${sportMap['name'] ?? ''} ${sportMap['slug'] ?? ''}'
           .toLowerCase();
       if (!sportName.contains('cricket')) continue;
 
-      final rawLeagues = sport['leagues'];
+      final rawLeagues = sportMap['leagues'];
       if (rawLeagues is! List) continue;
 
-      for (final league in rawLeagues.whereType<Map<String, dynamic>>()) {
+      for (final rawLeague in rawLeagues.whereType<Map>()) {
+        final league = Map<String, dynamic>.from(rawLeague);
         final id = '${league['id'] ?? ''}'.trim();
         if (id.isEmpty) continue;
 
-        final events = league['events'];
-        final eventCount = events is List ? events.length : 0;
+        final rawEvents = league['events'];
+        final events = rawEvents is List
+            ? rawEvents
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+            : const <Map<String, dynamic>>[];
+
         leagues.add(
           _CricketLeague(
             id: id,
-            name: '${league['name'] ?? league['abbreviation'] ?? 'Cricket'}',
-            eventCount: eventCount,
-            headerEvents: events is List
-                ? events.whereType<Map<String, dynamic>>().toList()
-                : const [],
+            name: '${league['name'] ?? league['shortName'] ?? 'Cricket'}',
+            eventCount: events.length,
+            headerEvents: events,
           ),
         );
       }
     }
 
     final seen = <String>{};
-    return leagues.where((league) => seen.add(league.id)).take(12).toList();
+    final unique = leagues.where((l) => seen.add(l.id)).toList();
+
+    // Keep all active series, but process India-related series first.
+    unique.sort((a, b) {
+      final ai = _isIndiaText(a.name) ? 0 : 1;
+      final bi = _isIndiaText(b.name) ? 0 : 1;
+      if (ai != bi) return ai.compareTo(bi);
+      return b.eventCount.compareTo(a.eventCount);
+    });
+    return unique;
   }
 
   Future<List<LiveCricketMatch>> _fetchMatches(
@@ -263,50 +272,14 @@ class LiveCricketRepository {
   Future<List<LiveCricketMatch>> _fetchLeagueMatches(
     _CricketLeague league,
   ) async {
-    try {
-      final uri = Uri.parse('$_scoreboardBaseUrl/${league.id}/scoreboard');
-      final response = await _get(uri);
-      if (response.statusCode != 200) {
-        final headerMatches = _headerEventMatches(league);
-        if (headerMatches.isNotEmpty) return headerMatches;
-        return _fetchCoreLeagueEvents(league);
-      }
-
-      final payload = _decodeMap(response.body);
-      final events = payload['events'];
-      if (events is! List) {
-        final headerMatches = _headerEventMatches(league);
-        if (headerMatches.isNotEmpty) return headerMatches;
-        return _fetchCoreLeagueEvents(league);
-      }
-
-      return events
-          .whereType<Map<String, dynamic>>()
-          .map((event) => _toMatch(event, league))
-          .whereType<LiveCricketMatch>()
-          .where(
-            (match) =>
-                match.status == CricketMatchStatus.live ||
-                match.status == CricketMatchStatus.upcoming,
-          )
-          .toList();
-    } catch (_) {
-      final headerMatches = _headerEventMatches(league);
-      if (headerMatches.isNotEmpty) return headerMatches;
-      return _fetchCoreLeagueEvents(league);
-    }
-  }
-
-  List<LiveCricketMatch> _headerEventMatches(_CricketLeague league) {
-    return league.headerEvents
+    final fromHeader = league.headerEvents
         .map((event) => _toMatch(event, league))
         .whereType<LiveCricketMatch>()
-        .where(
-          (match) =>
-              match.status == CricketMatchStatus.live ||
-              match.status == CricketMatchStatus.upcoming,
-        )
+        .where((m) => m.isLive || m.isUpcoming)
         .toList();
+
+    if (fromHeader.isNotEmpty) return fromHeader;
+    return _fetchCoreLeagueEvents(league);
   }
 
   Future<List<LiveCricketMatch>> _fetchCoreLeagueEvents(
@@ -315,7 +288,7 @@ class LiveCricketRepository {
     try {
       final uri = Uri.parse(
         '$_coreEventsBaseUrl/${Uri.encodeComponent(league.id)}/events',
-      );
+      ).replace(queryParameters: const {'limit': '100'});
       final response = await _get(uri);
       if (response.statusCode != 200) return const [];
 
@@ -323,15 +296,29 @@ class LiveCricketRepository {
       final items = payload['items'];
       if (items is! List) return const [];
 
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map((event) => _toCoreMatch(event, league))
+      final resolved = await Future.wait(
+        items.whereType<Map>().take(60).map((item) async {
+          final event = Map<String, dynamic>.from(item);
+          final direct = _toMatch(event, league);
+          if (direct != null) return direct;
+
+          final eventRef = event[r'$ref'];
+          if (eventRef is String && eventRef.isNotEmpty) {
+            try {
+              final eventResponse = await _get(Uri.parse(eventRef));
+              if (eventResponse.statusCode == 200) {
+                return _toMatch(_decodeMap(eventResponse.body), league);
+              }
+            } catch (_) {}
+          }
+          return null;
+        }),
+        eagerError: false,
+      );
+
+      return resolved
           .whereType<LiveCricketMatch>()
-          .where(
-            (match) =>
-                match.status == CricketMatchStatus.live ||
-                match.status == CricketMatchStatus.upcoming,
-          )
+          .where((m) => m.isLive || m.isUpcoming)
           .toList();
     } catch (_) {
       return const [];
@@ -342,77 +329,66 @@ class LiveCricketRepository {
     Map<String, dynamic> event,
     _CricketLeague league,
   ) {
-    final competition = _firstMap(event['competitions']);
-    final competitors = competition?['competitors'];
-    if (competition == null || competitors is! List) return null;
-
-    final status = _parseStatus(competition['status']);
-    final scheduledAt = _parseDate(event['date']);
-    final scores = competitors
-        .whereType<Map<String, dynamic>>()
-        .map(_toTeamScore)
-        .toList();
-
-    final category = _categorize(
-      seriesName: league.name,
-      teamNames: scores.map((score) => score.name).toList(),
-    );
-
-    final eventId = '${event['id'] ?? ''}';
+    final eventId = '${event['id'] ?? ''}'.trim();
     if (eventId.isEmpty) return null;
 
-    return LiveCricketMatch(
-      id: 'espn_$eventId',
-      provider: 'espn',
-      title: '${event['shortName'] ?? event['name'] ?? league.name}',
-      seriesName: league.name,
-      status: status,
-      category: category,
-      scores: scores,
-      scheduledAt: scheduledAt,
-      venue: _venueName(competition['venue']),
-      detail: _statusDetail(competition['status']),
-      sourceUrl: 'https://www.espncricinfo.com/',
-    );
-  }
-
-  LiveCricketMatch? _toCoreMatch(
-    Map<String, dynamic> event,
-    _CricketLeague league,
-  ) {
-    final eventId = '${event['id'] ?? ''}';
-    if (eventId.isEmpty) return null;
-
-    final status = _parseStatus(event['status']);
-    final competitors = event['competitors'];
-    final scores = competitors is List
-        ? competitors
-              .whereType<Map<String, dynamic>>()
-              .map(_toTeamScore)
+    final competition = _firstMap(event['competitions']) ?? event;
+    final rawCompetitors = competition['competitors'] ?? event['competitors'];
+    final competitors = rawCompetitors is List
+        ? rawCompetitors
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
               .toList()
-        : <CricketTeamScore>[];
+        : const <Map<String, dynamic>>[];
 
-    final teamNames = scores.map((score) => score.name).toList();
+    final statusRaw = event['status'] ?? competition['status'];
+    final status = _parseStatus(statusRaw);
+    final scores = competitors.map(_toTeamScore).toList();
+
+    // Some header payloads put teams directly on the event.
+    if (scores.isEmpty) {
+      final teams = event['teams'];
+      if (teams is List) {
+        for (final rawTeam in teams.whereType<Map>()) {
+          final team = Map<String, dynamic>.from(rawTeam);
+          final name = '${team['displayName'] ?? team['name'] ?? ''}'.trim();
+          if (name.isEmpty) continue;
+          scores.add(
+            CricketTeamScore(
+              name: name,
+              abbreviation: team['abbreviation'] as String?,
+              score: team['score']?.toString(),
+              isWinner: team['winner'] == true,
+            ),
+          );
+        }
+      }
+    }
+
+    final teamNames = scores.map((s) => s.name).toList();
     return LiveCricketMatch(
       id: 'espn_$eventId',
       provider: 'espn',
-      title: '${event['name'] ?? league.name}',
+      title:
+          '${event['shortName'] ?? event['name'] ?? (teamNames.isEmpty ? league.name : teamNames.join(' vs '))}',
       seriesName: league.name,
       status: status,
       category: _categorize(seriesName: league.name, teamNames: teamNames),
       scores: scores,
-      scheduledAt: _parseDate(event['date']),
-      detail: _statusDetail(event['status']),
+      scheduledAt: _parseDate(event['date'] ?? competition['date']),
+      venue: _venueName(competition['venue'] ?? event['venue']),
+      detail: _statusDetail(statusRaw),
       sourceUrl: 'https://www.espncricinfo.com/',
     );
   }
 
   CricketTeamScore _toTeamScore(Map<String, dynamic> competitor) {
-    final team = _firstMap(competitor['team']);
+    final team = _firstMap(competitor['team']) ?? competitor;
     return CricketTeamScore(
-      name: '${team?['displayName'] ?? team?['shortDisplayName'] ?? 'Team'}',
-      abbreviation: team?['abbreviation'] as String?,
-      score: competitor['score']?.toString(),
+      name:
+          '${team['displayName'] ?? team['shortDisplayName'] ?? team['name'] ?? 'Team'}',
+      abbreviation: team['abbreviation'] as String?,
+      score: competitor['score']?.toString() ?? team['score']?.toString(),
       isWinner: competitor['winner'] == true,
     );
   }
@@ -420,45 +396,40 @@ class LiveCricketRepository {
   Future<List<CricketNewsArticle>> _fetchNews(
     List<_CricketLeague> leagues,
   ) async {
-    final selected = leagues.take(6).toList();
-    if (selected.isEmpty) return const [];
-
+    if (leagues.isEmpty) return const [];
+    final selected = leagues.take(10).toList();
     final results = await Future.wait(
       selected.map(_fetchLeagueNews),
       eagerError: false,
     );
-
     final byId = <String, CricketNewsArticle>{};
     for (final articles in results) {
-      for (final article in articles) {
-        byId[article.id] = article;
-      }
+      for (final article in articles) byId[article.id] = article;
     }
-
     final articles = byId.values.toList()
-      ..sort((a, b) {
-        final aDate = a.publishedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.publishedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
-    return articles.take(20).toList();
+      ..sort(
+        (a, b) => (b.publishedAt ?? DateTime(1970)).compareTo(
+          a.publishedAt ?? DateTime(1970),
+        ),
+      );
+    return articles.take(30).toList();
   }
 
   Future<List<CricketNewsArticle>> _fetchLeagueNews(
     _CricketLeague league,
   ) async {
     try {
-      final uri = Uri.parse('$_scoreboardBaseUrl/${league.id}/news');
+      final uri = Uri.parse(
+        'https://site.api.espn.com/apis/site/v2/sports/cricket/${Uri.encodeComponent(league.id)}/news',
+      );
       final response = await _get(uri);
       if (response.statusCode != 200) return const [];
-
       final payload = _decodeMap(response.body);
       final articles = payload['articles'];
       if (articles is! List) return const [];
-
       return articles
-          .whereType<Map<String, dynamic>>()
-          .map((article) => _toNewsArticle(article, league))
+          .whereType<Map>()
+          .map((a) => _toNewsArticle(Map<String, dynamic>.from(a), league))
           .whereType<CricketNewsArticle>()
           .toList();
     } catch (_) {
@@ -476,69 +447,16 @@ class LiveCricketRepository {
 
     final links = _firstMap(article['links']);
     final web = _firstMap(links?['web']);
-    final imageUrl = _extractImage(article);
-
     return CricketNewsArticle(
       id: 'espn_news_$id',
       title: title,
       sourceName: 'ESPNcricinfo',
       publishedAt: _parseDate(article['published']),
       summary: '${article['description'] ?? article['summary'] ?? ''}'.trim(),
-      imageUrl: imageUrl,
+      imageUrl: _extractImage(article),
       sourceUrl: web?['href'] as String?,
       category: _categorize(seriesName: league.name, teamNames: const []),
     );
-  }
-
-  Future<http.Response> _get(Uri uri) {
-    return _client
-        .get(
-          uri,
-          headers: const {
-            'Accept': 'application/json',
-            'User-Agent': 'Stumply/1.0',
-          },
-        )
-        .timeout(const Duration(seconds: 10));
-  }
-
-  Map<String, dynamic> _decodeMap(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Unexpected cricket API response');
-    }
-    return decoded;
-  }
-
-  Map<String, dynamic>? _firstMap(dynamic value) {
-    return value is Map<String, dynamic> ? value : null;
-  }
-
-  String? _venueName(dynamic venue) {
-    final map = _firstMap(venue);
-    return map?['fullName'] as String? ?? map?['name'] as String?;
-  }
-
-  String? _statusDetail(dynamic status) {
-    final map = _firstMap(status);
-    final type = _firstMap(map?['type']);
-    return type?['shortDetail'] as String? ?? type?['detail'] as String?;
-  }
-
-  CricketMatchStatus _parseStatus(dynamic raw) {
-    final map = _firstMap(raw);
-    final type = _firstMap(map?['type']);
-    final state = '${type?['state'] ?? map?['state'] ?? ''}'.toLowerCase();
-    if (state == 'in' || state == 'live') return CricketMatchStatus.live;
-    if (state == 'post' || state == 'completed') {
-      return CricketMatchStatus.completed;
-    }
-    return CricketMatchStatus.upcoming;
-  }
-
-  DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    return DateTime.tryParse(value.toString())?.toLocal();
   }
 
   CricketCategory _categorize({
@@ -546,8 +464,20 @@ class LiveCricketRepository {
     required List<String> teamNames,
   }) {
     final text = '$seriesName ${teamNames.join(' ')}'.toLowerCase();
+    final india =
+        _isIndiaText(text) ||
+        [
+          'ranji',
+          'vijay hazare',
+          'syed mushtaq',
+          'duleep',
+          'irani cup',
+          'bcci',
+          'ipl',
+        ].any(text.contains);
+    if (india) return CricketCategory.india;
 
-    const internationalKeywords = [
+    final international = [
       'international',
       'test match',
       'odi',
@@ -557,39 +487,21 @@ class LiveCricketRepository {
       'asia cup',
       'icc ',
       'bilateral',
-      'new zealand',
-      'india ',
-      'australia ',
-      'england ',
-      'south africa ',
-      'pakistan ',
-      'sri lanka ',
-      'bangladesh ',
+      'australia',
+      'england',
+      'south africa',
+      'pakistan',
+      'sri lanka',
+      'bangladesh',
       'west indies',
-      'afghanistan ',
-      'ireland ',
-      'zimbabwe ',
-    ];
+      'afghanistan',
+      'ireland',
+      'new zealand',
+      'zimbabwe',
+    ].any(text.contains);
+    if (international) return CricketCategory.international;
 
-    if (internationalKeywords.any(text.contains)) {
-      return CricketCategory.international;
-    }
-
-    const indiaKeywords = [
-      'ipl',
-      'ranji',
-      'vijay hazare',
-      'syed mushtaq',
-      'duleep',
-      'irani cup',
-      'india domestic',
-      'maharaja trophy',
-      'sma trophy',
-      'bcci',
-    ];
-    if (indiaKeywords.any(text.contains)) return CricketCategory.india;
-
-    const leagueKeywords = [
+    final league = [
       'league',
       't20 blast',
       'big bash',
@@ -601,21 +513,90 @@ class LiveCricketRepository {
       'mlc',
       'ilt20',
       'super smash',
-    ];
-    if (leagueKeywords.any(text.contains)) return CricketCategory.league;
-
+    ].any(text.contains);
+    if (league) return CricketCategory.league;
     return CricketCategory.domestic;
+  }
+
+  static bool _isIndiaText(String text) {
+    final value = text.toLowerCase();
+    return value.contains('india') ||
+        value.contains('india a') ||
+        value.contains('india women') ||
+        value.contains('india u19') ||
+        value.contains('indian');
   }
 
   List<LiveCricketMatch> _sortMatches(List<LiveCricketMatch> matches) {
     final result = [...matches];
     result.sort((a, b) {
-      if (a.isLive != b.isLive) return a.isLive ? -1 : 1;
-      final aDate = a.scheduledAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.scheduledAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final aLive = a.isLive ? 0 : 1;
+      final bLive = b.isLive ? 0 : 1;
+      if (aLive != bLive) return aLive.compareTo(bLive);
+      final aIndia = a.category == CricketCategory.india ? 0 : 1;
+      final bIndia = b.category == CricketCategory.india ? 0 : 1;
+      if (aIndia != bIndia) return aIndia.compareTo(bIndia);
+      final aDate = a.scheduledAt ?? DateTime(2099);
+      final bDate = b.scheduledAt ?? DateTime(2099);
       return aDate.compareTo(bDate);
     });
     return result;
+  }
+
+  CricketMatchStatus _parseStatus(dynamic raw) {
+    final map = _firstMap(raw);
+    final type = _firstMap(map?['type']);
+    final state = '${type?['state'] ?? map?['state'] ?? raw ?? ''}'
+        .toLowerCase();
+    if (state == 'in' ||
+        state == 'live' ||
+        state == 'inprogress' ||
+        state == 'in_progress')
+      return CricketMatchStatus.live;
+    if (state == 'post' ||
+        state == 'completed' ||
+        state == 'complete' ||
+        state == 'final')
+      return CricketMatchStatus.completed;
+    return CricketMatchStatus.upcoming;
+  }
+
+  String? _statusDetail(dynamic raw) {
+    final map = _firstMap(raw);
+    final type = _firstMap(map?['type']);
+    return type?['shortDetail'] as String? ??
+        type?['detail'] as String? ??
+        type?['name'] as String?;
+  }
+
+  String? _venueName(dynamic raw) {
+    final map = _firstMap(raw);
+    return map?['fullName'] as String? ?? map?['name'] as String?;
+  }
+
+  DateTime? _parseDate(dynamic value) =>
+      value == null ? null : DateTime.tryParse(value.toString())?.toLocal();
+
+  Future<http.Response> _get(Uri uri) => _client
+      .get(
+        uri,
+        headers: const {
+          'Accept': 'application/json',
+          'User-Agent': 'Stumply/1.0',
+        },
+      )
+      .timeout(const Duration(seconds: 10));
+
+  Map<String, dynamic> _decodeMap(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map)
+      throw const FormatException('Unexpected cricket API response');
+    return Map<String, dynamic>.from(decoded);
+  }
+
+  Map<String, dynamic>? _firstMap(dynamic value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
   }
 
   void dispose() => _client.close();
@@ -628,7 +609,6 @@ class _CricketLeague {
     required this.eventCount,
     required this.headerEvents,
   });
-
   final String id;
   final String name;
   final int eventCount;
@@ -636,86 +616,33 @@ class _CricketLeague {
 }
 
 String? _extractImage(Map<String, dynamic> article) {
-  // Direct image URL fields
-  final imageUrl = article['imageUrl'];
-  if (imageUrl is String && imageUrl.trim().isNotEmpty) {
-    return imageUrl.trim();
+  for (final key in ['imageUrl', 'image', 'thumbnail']) {
+    final value = article[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
   }
-
-  final image = article['image'];
-  if (image is String && image.trim().isNotEmpty) {
-    return image.trim();
-  }
-
-  final thumbnail = article['thumbnail'];
-  if (thumbnail is String && thumbnail.trim().isNotEmpty) {
-    return thumbnail.trim();
-  }
-
-  // ESPN images array
   final images = article['images'];
-
   if (images is List) {
-    for (final item in images) {
-      if (item is Map<String, dynamic>) {
-        final url = item['url'];
-
-        if (url is String && url.trim().isNotEmpty) {
-          return url.trim();
-        }
-
-        final href = item['href'];
-
-        if (href is String && href.trim().isNotEmpty) {
-          return href.trim();
-        }
-
-        final src = item['src'];
-
-        if (src is String && src.trim().isNotEmpty) {
-          return src.trim();
-        }
+    for (final item in images.whereType<Map>()) {
+      final map = Map<String, dynamic>.from(item);
+      for (final key in ['url', 'href', 'src']) {
+        final value = map[key];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
       }
     }
   }
-
-  // ESPN links.thumbnail
   final links = article['links'];
-
-  if (links is Map<String, dynamic>) {
-    final thumbnailLink = links['thumbnail'];
-
-    if (thumbnailLink is Map<String, dynamic>) {
-      final href = thumbnailLink['href'];
-
-      if (href is String && href.trim().isNotEmpty) {
-        return href.trim();
-      }
-
-      final url = thumbnailLink['url'];
-
-      if (url is String && url.trim().isNotEmpty) {
-        return url.trim();
-      }
-    }
-
-    // ESPN links.image
-    final imageLink = links['image'];
-
-    if (imageLink is Map<String, dynamic>) {
-      final href = imageLink['href'];
-
-      if (href is String && href.trim().isNotEmpty) {
-        return href.trim();
-      }
-
-      final url = imageLink['url'];
-
-      if (url is String && url.trim().isNotEmpty) {
-        return url.trim();
+  if (links is Map) {
+    final linkMap = Map<String, dynamic>.from(links);
+    for (final key in ['thumbnail', 'image']) {
+      final item = linkMap[key];
+      if (item is Map) {
+        final map = Map<String, dynamic>.from(item);
+        for (final field in ['href', 'url']) {
+          final value = map[field];
+          if (value is String && value.trim().isNotEmpty) return value.trim();
+        }
       }
     }
   }
-
   return null;
 }

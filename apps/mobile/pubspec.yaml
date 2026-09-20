@@ -12,8 +12,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   scoring_engine:
     path: ../../packages/scoring_engine
-
-  # Firebase
   firebase_core: ^3.8.1
   firebase_auth: ^5.3.4
   cloud_firestore: ^5.6.0
@@ -24,24 +22,14 @@ dependencies:
   firebase_crashlytics: ^4.2.0
   firebase_app_check: ^0.3.1+7
   cloud_functions: ^5.2.0
-
-  # State & architecture
   flutter_riverpod: ^2.6.1
-
-  # Navigation & UI
   go_router: ^14.6.2
   cached_network_image: ^3.4.1
   fl_chart: ^0.69.2
   shimmer: ^3.0.0
   google_fonts: ^6.2.1
-
-  # Local storage & offline
   connectivity_plus: ^6.1.1
-
-  # Auth providers
   google_sign_in: ^6.2.2
-
-  # Utilities
   intl: ^0.20.1
   uuid: ^4.5.1
   share_plus: ^10.1.3
@@ -50,8 +38,7 @@ dependencies:
   image_picker: ^1.1.2
   shared_preferences: ^2.3.3
   http: ^1.3.0
-
-  # Monetization (Phase 4-6)
+  geolocator: ^14.0.2
   purchases_flutter: ^8.3.2
   google_mobile_ads: ^9.0.0
 
@@ -65,13 +52,13 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/images/app_icon.png
-  adaptive_icon_background: "#1B4332"
+  adaptive_icon_background: "#063B29"
   adaptive_icon_foreground: assets/images/app_icon.png
   web:
     generate: true
     image_path: assets/images/app_icon.png
-    background_color: "#1B4332"
-    theme_color: "#1B4332"
+    background_color: "#063B29"
+    theme_color: "#0B5D3B"
 
 flutter:
   uses-material-design: true

@@ -27,6 +27,7 @@ import '../../features/tournaments/presentation/create_tournament_screen.dart';
 import '../../features/tournaments/presentation/tournament_detail_screen.dart';
 import '../../features/tournaments/presentation/tournaments_screen.dart';
 import '../../shared/widgets/main_shell.dart';
+import 'core/theme/app_theme.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -142,7 +143,8 @@ class CrickApp extends ConsumerWidget {
       title: 'Stumply',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      theme: ThemeData(useMaterial3: true),
+      theme: AppTheme.light,
+      themeMode: ThemeMode.light,
     );
   }
 }
