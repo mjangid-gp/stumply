@@ -14,6 +14,10 @@ class ScoringEngineException implements Exception {
   String toString() => 'ScoringEngineException: $message';
 }
 
+/// Event-sourced cricket scoring engine.
+///
+/// The event log is the source of truth. Scorecards, totals and player
+/// statistics are rebuilt from the events, which makes undo/correction safe.
 class ScoringEngine {
   ScoringEngine({required this.config});
 
@@ -21,10 +25,8 @@ class ScoringEngine {
   final List<BallEvent> _events = [];
 
   List<BallEvent> get events => List.unmodifiable(_events);
-
   LiveMatchState get state => _rebuildState();
 
-  /// Validates and applies a new ball event.
   BallEvent recordBall({
     required String strikerId,
     required String nonStrikerId,
@@ -41,33 +43,49 @@ class ScoringEngine {
     if (current.status == MatchStatus.completed) {
       throw ScoringEngineException('Match is already completed');
     }
-
-    final sequence = current.lastSequence + 1;
-    final isFreeHit = current.isFreeHit;
-
-    if (isFreeHit &&
+    if (strikerId.trim().isEmpty ||
+        nonStrikerId.trim().isEmpty ||
+        bowlerId.trim().isEmpty) {
+      throw ScoringEngineException(
+          'Striker, non-striker and bowler are required');
+    }
+    if (runsOffBat < 0 || extraRuns < 0) {
+      throw ScoringEngineException('Runs cannot be negative');
+    }
+    if (extraType == ExtraType.wide && runsOffBat != 0) {
+      throw ScoringEngineException('A wide cannot contain bat runs');
+    }
+    if (extraType == ExtraType.noBall && extraRuns < 1) {
+      throw ScoringEngineException(
+          'A no-ball must include at least one no-ball extra');
+    }
+    if (extraType == ExtraType.wide && extraRuns < 1) {
+      throw ScoringEngineException(
+          'A wide must include at least one wide extra');
+    }
+    if (wicketType != null && dismissedPlayerId == null) {
+      throw ScoringEngineException('Dismissed player is required for a wicket');
+    }
+    if (current.isFreeHit &&
         wicketType != null &&
         wicketType != WicketType.runOut) {
-      throw ScoringEngineException('Only run out allowed on free hit');
+      throw ScoringEngineException('Only run out is allowed on a free hit');
     }
 
     if (config.maxOversPerBowler != null && extraType != ExtraType.wide) {
       final bowlerStats = _bowlerStatsForCurrentInnings(bowlerId);
       final legalBalls = bowlerStats.overs * 6 + bowlerStats.ballsInOver;
-      final willBeLegal = extraType != ExtraType.noBall;
-      if (willBeLegal && legalBalls >= config.maxOversPerBowler! * 6) {
+      if (extraType != ExtraType.noBall &&
+          legalBalls >= config.maxOversPerBowler! * 6) {
         throw ScoringEngineException('Bowler has reached max overs limit');
       }
     }
 
-    final overNumber = current.overs;
-    final ballInOver = current.ballsInOver + 1;
-
     final event = BallEvent(
-      sequence: sequence,
+      sequence: current.lastSequence + 1,
       inningsNumber: current.currentInnings,
-      overNumber: overNumber,
-      ballInOver: ballInOver > 6 ? 1 : ballInOver,
+      overNumber: current.overs,
+      ballInOver: current.ballsInOver + 1,
       strikerId: strikerId,
       nonStrikerId: nonStrikerId,
       bowlerId: bowlerId,
@@ -77,19 +95,27 @@ class ScoringEngine {
       wicketType: wicketType,
       dismissedPlayerId: dismissedPlayerId,
       fielderId: fielderId,
-      isFreeHit: isFreeHit,
+      isFreeHit: current.isFreeHit,
       timestamp: DateTime.now().toUtc(),
       commentary: commentary,
     );
-
     _events.add(event);
     return event;
   }
 
-  /// Undo the last ball event.
-  BallEvent? undoLastBall() {
-    if (_events.isEmpty) return null;
-    return _events.removeLast();
+  BallEvent? undoLastBall() => _events.isEmpty ? null : _events.removeLast();
+
+  /// Removes a selected event and re-numbers the remaining event stream.
+  /// Useful for scorer corrections; callers should then persist the rebuilt log.
+  BallEvent? removeBall(int sequence) {
+    final index = _events.indexWhere((e) => e.sequence == sequence);
+    if (index < 0) return null;
+    final removed = _events.removeAt(index);
+    for (var i = 0; i < _events.length; i++) {
+      final e = _events[i];
+      _events[i] = e.copyWith(sequence: i + 1);
+    }
+    return removed;
   }
 
   LiveMatchState _rebuildState() {
@@ -112,76 +138,78 @@ class ScoringEngine {
       );
     }
 
-    var innings = 1;
-    var runs = 0;
-    var wickets = 0;
-    var overs = 0;
-    var ballsInOver = 0;
+    final grouped = <int, List<BallEvent>>{};
+    for (final event in _events) {
+      grouped.putIfAbsent(event.inningsNumber, () => []).add(event);
+    }
+
+    final scorecards = <InningsScorecard>[];
+    int? target;
+    String? result;
+    var status = MatchStatus.inProgress;
+    var currentInnings = 1;
     var striker = _events.first.strikerId;
     var nonStriker = _events.first.nonStrikerId;
     var bowler = _events.first.bowlerId;
-    var isFreeHit = false;
-    int? target;
-    final inningsScorecards = <InningsScorecard>[];
-    String? result;
-    var status = MatchStatus.inProgress;
-    String battingTeamId = config.battingTeamId;
-    String bowlingTeamId = config.bowlingTeamId;
+    var battingTeamId = config.battingTeamId;
+    var bowlingTeamId = config.bowlingTeamId;
+    var totalRuns = 0;
+    var wickets = 0;
+    var overs = 0;
+    var ballsInOver = 0;
+    var freeHit = false;
 
-    final inningsEvents = <int, List<BallEvent>>{};
-    for (final e in _events) {
-      inningsEvents.putIfAbsent(e.inningsNumber, () => []).add(e);
-    }
-
-    for (final entry in inningsEvents.entries) {
-      final innNum = entry.key;
-      final evts = entry.value;
+    for (final inningsNumber in grouped.keys.toList()..sort()) {
+      final events = grouped[inningsNumber]!;
+      final inningsBatting =
+          inningsNumber == 1 ? config.battingTeamId : config.bowlingTeamId;
+      final inningsBowling =
+          inningsNumber == 1 ? config.bowlingTeamId : config.battingTeamId;
       final scorecard = _buildInningsScorecard(
-        innNum,
-        evts,
-        battingTeamId: innNum == 1 ? config.battingTeamId : config.bowlingTeamId,
-        bowlingTeamId: innNum == 1 ? config.bowlingTeamId : config.battingTeamId,
+        inningsNumber,
+        events,
+        battingTeamId: inningsBatting,
+        bowlingTeamId: inningsBowling,
         target: target,
       );
-      inningsScorecards.add(scorecard);
-
-      runs = scorecard.totalRuns;
+      scorecards.add(scorecard);
+      currentInnings = inningsNumber;
+      totalRuns = scorecard.totalRuns;
       wickets = scorecard.wickets;
       overs = scorecard.overs;
       ballsInOver = scorecard.ballsInOver;
-      innings = innNum;
-
-      final last = evts.last;
+      battingTeamId = inningsBatting;
+      bowlingTeamId = inningsBowling;
+      final last = events.last;
       striker = last.strikerId;
       nonStriker = last.nonStrikerId;
       bowler = last.bowlerId;
-      isFreeHit = _computeFreeHit(evts);
+      freeHit = config.allowFreeHit && last.extraType == ExtraType.noBall;
 
-      final maxWickets = config.playersPerSide - 1;
-      final maxBalls = config.totalOvers * 6;
-      final totalBalls = overs * 6 + ballsInOver;
-      final inningsComplete =
-          wickets >= maxWickets || totalBalls >= maxBalls;
+      final inningsComplete = scorecard.wickets >= config.playersPerSide - 1 ||
+          (scorecard.overs * 6 + scorecard.ballsInOver) >=
+              config.totalOvers * 6;
 
-      if (innNum == 1 && inningsComplete) {
-        target = runs + 1;
+      if (inningsNumber == 1 && inningsComplete) {
+        target = scorecard.totalRuns + 1;
+        currentInnings = 2;
         battingTeamId = config.bowlingTeamId;
         bowlingTeamId = config.battingTeamId;
-        runs = 0;
+        totalRuns = 0;
         wickets = 0;
         overs = 0;
         ballsInOver = 0;
-        innings = 2;
-      } else if (innNum == 2) {
-        if (target != null && runs >= target) {
-          result = 'Batting team won by ${config.playersPerSide - 1 - wickets} wickets';
+      }
+
+      if (inningsNumber == 2 && target != null) {
+        if (scorecard.totalRuns >= target) {
+          result =
+              'Batting team won by ${config.playersPerSide - 1 - scorecard.wickets} wickets';
           status = MatchStatus.completed;
         } else if (inningsComplete) {
-          if (target != null && runs < target - 1) {
-            result = 'Bowling team won by ${target - 1 - runs} runs';
-          } else {
-            result = 'Match tied';
-          }
+          result = scorecard.totalRuns == target - 1
+              ? 'Match tied'
+              : 'Bowling team won by ${target - 1 - scorecard.totalRuns} runs';
           status = MatchStatus.completed;
         }
       }
@@ -190,48 +218,36 @@ class ScoringEngine {
     return LiveMatchState(
       matchId: config.matchId,
       status: status,
-      currentInnings: innings,
+      currentInnings: currentInnings,
       strikerId: striker,
       nonStrikerId: nonStriker,
       bowlerId: bowler,
-      totalRuns: runs,
+      totalRuns: totalRuns,
       wickets: wickets,
       overs: overs,
       ballsInOver: ballsInOver,
-      isFreeHit: isFreeHit,
+      isFreeHit: freeHit,
       lastSequence: _events.last.sequence,
       target: target,
-      inningsScorecards: inningsScorecards,
+      inningsScorecards: scorecards,
       result: result,
       battingTeamId: battingTeamId,
       bowlingTeamId: bowlingTeamId,
     );
   }
 
-  bool _computeFreeHit(List<BallEvent> events) {
-    if (!config.allowFreeHit || events.isEmpty) return false;
-    final last = events.last;
-    return last.extraType == ExtraType.noBall;
-  }
-
   BowlingStats _bowlerStatsForCurrentInnings(String bowlerId) {
-    final currentInnings =
-        _events.isEmpty ? 1 : _events.last.inningsNumber;
-    final evts =
-        _events.where((e) => e.inningsNumber == currentInnings).toList();
-    if (evts.isEmpty) {
-      return BowlingStats(playerId: bowlerId);
-    }
+    final innings = _events.isEmpty ? 1 : _events.last.inningsNumber;
+    final events = _events.where((e) => e.inningsNumber == innings).toList();
+    if (events.isEmpty) return BowlingStats(playerId: bowlerId);
     return _buildInningsScorecard(
-      currentInnings,
-      evts,
-      battingTeamId: currentInnings == 1
-          ? config.battingTeamId
-          : config.bowlingTeamId,
-      bowlingTeamId: currentInnings == 1
-          ? config.bowlingTeamId
-          : config.battingTeamId,
-    ).bowling[bowlerId] ??
+          innings,
+          events,
+          battingTeamId:
+              innings == 1 ? config.battingTeamId : config.bowlingTeamId,
+          bowlingTeamId:
+              innings == 1 ? config.bowlingTeamId : config.battingTeamId,
+        ).bowling[bowlerId] ??
         BowlingStats(playerId: bowlerId);
   }
 
@@ -250,71 +266,50 @@ class ScoringEngine {
     var noBalls = 0;
     var byes = 0;
     var legByes = 0;
+    var penalty = 0;
     final batting = <String, BattingStats>{};
     final bowling = <String, BowlingStats>{};
-    final fallOfWickets = <FallOfWicket>[];
+    final fows = <FallOfWicket>[];
 
-    if (events.isEmpty) {
-      return InningsScorecard(
-        inningsNumber: inningsNumber,
-        battingTeamId: battingTeamId,
-        bowlingTeamId: bowlingTeamId,
-        totalRuns: 0,
-        wickets: 0,
-        overs: 0,
-        ballsInOver: 0,
-        extras: const ExtrasBreakdown(),
-        batting: {},
-        bowling: {},
-        fallOfWickets: [],
-        target: target,
-      );
-    }
-
-    String striker = events.first.strikerId;
-    String nonStriker = events.first.nonStrikerId;
+    String striker = events.isEmpty ? '' : events.first.strikerId;
+    String nonStriker = events.isEmpty ? '' : events.first.nonStrikerId;
 
     for (final event in events) {
-      striker = event.strikerId;
-      nonStriker = event.nonStrikerId;
-
       final ballRuns = event.totalRuns;
       runs += ballRuns;
-
-      if (event.extraType == ExtraType.wide) wides += event.extraRuns;
-      if (event.extraType == ExtraType.noBall) noBalls += event.extraRuns;
-      if (event.extraType == ExtraType.bye) byes += event.extraRuns;
-      if (event.extraType == ExtraType.legBye) legByes += event.extraRuns;
-
-      // Batting stats
-      if (event.isLegalDelivery || event.extraType == ExtraType.noBall) {
-        final batterId = event.extraType == ExtraType.bye ||
-                event.extraType == ExtraType.legBye
-            ? null
-            : event.strikerId;
-        if (batterId != null) {
-          final current = batting[batterId] ??
-              BattingStats(playerId: batterId);
-          var fours = current.fours;
-          var sixes = current.sixes;
-          if (event.runsOffBat == 4) fours++;
-          if (event.runsOffBat == 6) sixes++;
-          batting[batterId] = current.copyWith(
-            runs: current.runs + event.runsOffBat,
-            ballsFaced: event.isLegalDelivery
-                ? current.ballsFaced + 1
-                : current.ballsFaced,
-            fours: fours,
-            sixes: sixes,
-          );
-        }
+      switch (event.extraType) {
+        case ExtraType.wide:
+          wides += event.extraRuns;
+        case ExtraType.noBall:
+          noBalls += event.extraRuns;
+        case ExtraType.bye:
+          byes += event.extraRuns;
+        case ExtraType.legBye:
+          legByes += event.extraRuns;
+        case ExtraType.penalty:
+          penalty += event.extraRuns;
+        case null:
+          break;
       }
 
-      // Bowling stats
-      final bowler = bowling[event.bowlerId] ??
-          BowlingStats(playerId: event.bowlerId);
-      var bOvers = bowler.overs;
-      var bBalls = bowler.ballsInOver;
+      final batter =
+          batting[event.strikerId] ?? BattingStats(playerId: event.strikerId);
+      final isBatterBall = event.extraType != ExtraType.wide &&
+          event.extraType != ExtraType.bye &&
+          event.extraType != ExtraType.legBye;
+      batting[event.strikerId] = batter.copyWith(
+        runs: batter.runs + event.runsOffBat,
+        ballsFaced: isBatterBall && event.isLegalDelivery
+            ? batter.ballsFaced + 1
+            : batter.ballsFaced,
+        fours: batter.fours + (event.runsOffBat == 4 ? 1 : 0),
+        sixes: batter.sixes + (event.runsOffBat == 6 ? 1 : 0),
+      );
+
+      final currentBowler =
+          bowling[event.bowlerId] ?? BowlingStats(playerId: event.bowlerId);
+      var bOvers = currentBowler.overs;
+      var bBalls = currentBowler.ballsInOver;
       if (event.isLegalDelivery) {
         bBalls++;
         if (bBalls == 6) {
@@ -322,28 +317,34 @@ class ScoringEngine {
           bBalls = 0;
         }
       }
-      bowling[event.bowlerId] = bowler.copyWith(
+      final conceded = event.extraType == ExtraType.bye ||
+              event.extraType == ExtraType.legBye
+          ? event.runsOffBat
+          : event.totalRuns;
+      final creditedWicket = event.isWicket &&
+          event.wicketType != WicketType.runOut &&
+          event.wicketType != WicketType.retiredOut;
+      bowling[event.bowlerId] = currentBowler.copyWith(
         overs: bOvers,
         ballsInOver: bBalls,
-        runsConceded: bowler.runsConceded + ballRuns,
-        wickets: event.isWicket ? bowler.wickets + 1 : bowler.wickets,
-        wides: event.extraType == ExtraType.wide
-            ? bowler.wides + 1
-            : bowler.wides,
-        noBalls: event.extraType == ExtraType.noBall
-            ? bowler.noBalls + 1
-            : bowler.noBalls,
+        runsConceded: currentBowler.runsConceded + conceded,
+        wickets: currentBowler.wickets + (creditedWicket ? 1 : 0),
+        wides: currentBowler.wides +
+            (event.extraType == ExtraType.wide ? event.extraRuns : 0),
+        noBalls: currentBowler.noBalls +
+            (event.extraType == ExtraType.noBall ? event.extraRuns : 0),
       );
 
       if (event.isWicket) {
         wickets++;
         final dismissed = event.dismissedPlayerId ?? event.strikerId;
-        final bat = batting[dismissed] ?? BattingStats(playerId: dismissed);
-        batting[dismissed] = bat.copyWith(
-          isOut: true,
+        final dismissedStats =
+            batting[dismissed] ?? BattingStats(playerId: dismissed);
+        batting[dismissed] = dismissedStats.copyWith(
+          isOut: event.wicketType != WicketType.retiredOut,
           dismissalText: _dismissalText(event),
         );
-        fallOfWickets.add(FallOfWicket(
+        fows.add(FallOfWicket(
           wicketNumber: wickets,
           runs: runs,
           playerId: dismissed,
@@ -359,17 +360,16 @@ class ScoringEngine {
         }
       }
 
-      // Strike rotation
       final total = event.totalRuns;
-      if (total % 2 == 1) {
-        final temp = striker;
+      if (total.isOdd) {
+        final tmp = striker;
         striker = nonStriker;
-        nonStriker = temp;
+        nonStriker = tmp;
       }
       if (event.isLegalDelivery && ballsInOver == 0 && overs > 0) {
-        final temp = striker;
+        final tmp = striker;
         striker = nonStriker;
-        nonStriker = temp;
+        nonStriker = tmp;
       }
     }
 
@@ -382,14 +382,14 @@ class ScoringEngine {
       overs: overs,
       ballsInOver: ballsInOver,
       extras: ExtrasBreakdown(
-        wides: wides,
-        noBalls: noBalls,
-        byes: byes,
-        legByes: legByes,
-      ),
+          wides: wides,
+          noBalls: noBalls,
+          byes: byes,
+          legByes: legByes,
+          penalty: penalty),
       batting: batting,
       bowling: bowling,
-      fallOfWickets: fallOfWickets,
+      fallOfWickets: fows,
       target: target,
     );
   }
@@ -399,27 +399,26 @@ class ScoringEngine {
       case WicketType.bowled:
         return 'b ${event.bowlerId}';
       case WicketType.caught:
-        return event.fielderId != null
-            ? 'c ${event.fielderId} b ${event.bowlerId}'
-            : 'c & b ${event.bowlerId}';
+        return event.fielderId == null
+            ? 'c & b ${event.bowlerId}'
+            : 'c ${event.fielderId} b ${event.bowlerId}';
       case WicketType.lbw:
         return 'lbw b ${event.bowlerId}';
       case WicketType.runOut:
-        return event.fielderId != null
-            ? 'run out (${event.fielderId})'
-            : 'run out';
+        return event.fielderId == null
+            ? 'run out'
+            : 'run out (${event.fielderId})';
       case WicketType.stumped:
-        return 'st ${event.fielderId} b ${event.bowlerId}';
+        return 'st ${event.fielderId ?? ''} b ${event.bowlerId}';
+      case WicketType.retiredOut:
+        return 'retired out';
       default:
         return event.wicketType?.name ?? 'out';
     }
   }
 
-  /// Rebuild state from persisted events (e.g. after sync).
-  static LiveMatchState fromEvents({
-    required MatchConfig config,
-    required List<BallEvent> events,
-  }) {
+  static LiveMatchState fromEvents(
+      {required MatchConfig config, required List<BallEvent> events}) {
     final engine = ScoringEngine(config: config);
     engine._events.addAll(events);
     return engine.state;

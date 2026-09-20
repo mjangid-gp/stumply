@@ -1,36 +1,54 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-
 import '../../../shared/models/player.dart';
 
-final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
-  return PlayerRepository(firestore: FirebaseFirestore.instance);
-});
+final playerRepositoryProvider = Provider<PlayerRepository>(
+  (ref) => PlayerRepository(firestore: FirebaseFirestore.instance),
+);
 
 class PlayerRepository {
   PlayerRepository({required this._firestore});
-
   final FirebaseFirestore _firestore;
   final Uuid _uuid = const Uuid();
 
   Future<Player?> getPlayer(String playerId) async {
-    final snapshot = await _firestore.collection('players').doc(playerId).get();
-    if (!snapshot.exists || snapshot.data() == null) return null;
-    return Player.fromMap(snapshot.id, snapshot.data()!);
+    final s = await _firestore.collection('players').doc(playerId).get();
+    return s.exists && s.data() != null
+        ? Player.fromMap(s.id, s.data()!)
+        : null;
   }
 
-  Future<List<Player>> getPlayersByIds(Iterable<String> playerIds) async {
-    final uniqueIds = playerIds
-        .where((id) => id.trim().isNotEmpty)
+  Future<List<Player>> getPlayersByIds(Iterable<String> ids) async {
+    final unique = ids
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
+    if (unique.isEmpty) return [];
+    final result = await Future.wait(unique.map(getPlayer));
+    return result.whereType<Player>().toList();
+  }
 
-    if (uniqueIds.isEmpty) return <Player>[];
-
-    final players = await Future.wait(uniqueIds.map(getPlayer));
-
-    return players.whereType<Player>().toList();
+  Stream<List<Player>> watchPlayers({String query = '', int limit = 50}) {
+    return _firestore.collection('players').limit(limit).snapshots().map((
+      snap,
+    ) {
+      final q = query.trim().toLowerCase();
+      final players = snap.docs
+          .map((d) => Player.fromMap(d.id, d.data()))
+          .where((p) {
+            if (q.isEmpty) return true;
+            return p.displayName.toLowerCase().contains(q) ||
+                p.city.toLowerCase().contains(q);
+          })
+          .toList();
+      players.sort(
+        (a, b) =>
+            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+      );
+      return players;
+    });
   }
 
   Future<Player> createGuestPlayer({
@@ -41,15 +59,12 @@ class PlayerRepository {
     String bowlingStyle = '',
     String role = 'player',
   }) async {
-    final cleanName = displayName.trim();
-    if (cleanName.isEmpty) {
-      throw ArgumentError('Player name cannot be empty.');
-    }
-
+    final name = displayName.trim();
+    if (name.isEmpty) throw ArgumentError('Player name cannot be empty.');
     final id = _uuid.v4();
     final player = Player(
       id: id,
-      displayName: cleanName,
+      displayName: name,
       city: city.trim(),
       battingStyle: battingStyle.trim(),
       bowlingStyle: bowlingStyle.trim(),
@@ -57,12 +72,10 @@ class PlayerRepository {
       isGuest: true,
       createdBy: createdBy,
     );
-
     await _firestore.collection('players').doc(id).set({
       ...player.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
     });
-
     return player;
   }
 }

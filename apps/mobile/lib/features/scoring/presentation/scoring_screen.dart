@@ -40,7 +40,9 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final matchAsync = ref.watch(matchRepositoryProvider).watchMatch(widget.matchId);
+    final matchAsync = ref
+        .watch(matchRepositoryProvider)
+        .watchMatch(widget.matchId);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -56,7 +58,9 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
             icon: const Icon(Icons.undo),
             tooltip: 'Undo last ball',
             onPressed: () async {
-              await ref.read(scoringRepositoryProvider).undoLastBall(widget.matchId);
+              await ref
+                  .read(scoringRepositoryProvider)
+                  .undoLastBall(widget.matchId);
               if (mounted) setState(() {});
             },
           ),
@@ -78,7 +82,10 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                 child: Text(
                   'Complete the toss on the match screen before scoring.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             );
@@ -91,7 +98,9 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
             bowlingTeamId: order.bowlingTeamId,
           );
 
-          final engine = ref.read(scoringRepositoryProvider).getEngine(_config!);
+          final engine = ref
+              .read(scoringRepositoryProvider)
+              .getEngine(_config!);
           final state = engine.state;
           final isCompleted = state.status == MatchStatus.completed;
           final battingName = state.currentInnings == 1
@@ -121,9 +130,9 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                   child: Text(
                     state.result ?? 'Match completed',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 )
@@ -132,11 +141,26 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                   child: Row(
                     children: [
-                      Expanded(child: _PlayerField(label: 'Striker *', controller: _strikerController)),
+                      Expanded(
+                        child: _PlayerField(
+                          label: 'Striker *',
+                          controller: _strikerController,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: _PlayerField(label: 'Non-striker', controller: _nonStrikerController)),
+                      Expanded(
+                        child: _PlayerField(
+                          label: 'Non-striker',
+                          controller: _nonStrikerController,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: _PlayerField(label: 'Bowler', controller: _bowlerController)),
+                      Expanded(
+                        child: _PlayerField(
+                          label: 'Bowler',
+                          controller: _bowlerController,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -162,7 +186,9 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                     state.isFreeHit
                         ? 'FREE HIT — only run out can dismiss a batter'
                         : 'Tap a run, extra, or wicket. Use RO for run out.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -174,18 +200,72 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
                   crossAxisSpacing: 8,
                   childAspectRatio: 1.1,
                   children: [
-                    _RunButton(label: '0', enabled: !isCompleted, onTap: () => _record(0)),
-                    _RunButton(label: '1', enabled: !isCompleted, onTap: () => _record(1)),
-                    _RunButton(label: '2', enabled: !isCompleted, onTap: () => _record(2)),
-                    _RunButton(label: '3', enabled: !isCompleted, onTap: () => _record(3)),
-                    _RunButton(label: '4', color: const Color(0xFF1565C0), enabled: !isCompleted, onTap: () => _record(4)),
-                    _RunButton(label: '6', color: const Color(0xFF6A1B9A), enabled: !isCompleted, onTap: () => _record(6)),
-                    _RunButton(label: 'WD', color: AppColors.accent, enabled: !isCompleted, onTap: () => _recordExtra(ExtraType.wide)),
-                    _RunButton(label: 'NB', color: AppColors.accent, enabled: !isCompleted, onTap: () => _recordExtra(ExtraType.noBall)),
-                    _RunButton(label: 'W', color: AppColors.cricketRed, enabled: !isCompleted, onTap: _recordWicket),
-                    _RunButton(label: 'RO', color: const Color(0xFFBF360C), enabled: !isCompleted, onTap: _recordRunOut),
-                    _RunButton(label: 'BYE', enabled: !isCompleted, onTap: () => _recordExtra(ExtraType.bye)),
-                    _RunButton(label: 'LB', enabled: !isCompleted, onTap: () => _recordExtra(ExtraType.legBye)),
+                    _RunButton(
+                      label: '0',
+                      enabled: !isCompleted,
+                      onTap: () => _record(0),
+                    ),
+                    _RunButton(
+                      label: '1',
+                      enabled: !isCompleted,
+                      onTap: () => _record(1),
+                    ),
+                    _RunButton(
+                      label: '2',
+                      enabled: !isCompleted,
+                      onTap: () => _record(2),
+                    ),
+                    _RunButton(
+                      label: '3',
+                      enabled: !isCompleted,
+                      onTap: () => _record(3),
+                    ),
+                    _RunButton(
+                      label: '4',
+                      color: const Color(0xFF1565C0),
+                      enabled: !isCompleted,
+                      onTap: () => _record(4),
+                    ),
+                    _RunButton(
+                      label: '6',
+                      color: const Color(0xFF6A1B9A),
+                      enabled: !isCompleted,
+                      onTap: () => _record(6),
+                    ),
+                    _RunButton(
+                      label: 'WD',
+                      color: AppColors.accent,
+                      enabled: !isCompleted,
+                      onTap: () => _recordExtra(ExtraType.wide),
+                    ),
+                    _RunButton(
+                      label: 'NB',
+                      color: AppColors.accent,
+                      enabled: !isCompleted,
+                      onTap: () => _recordExtra(ExtraType.noBall),
+                    ),
+                    _RunButton(
+                      label: 'W',
+                      color: AppColors.cricketRed,
+                      enabled: !isCompleted,
+                      onTap: _recordWicket,
+                    ),
+                    _RunButton(
+                      label: 'RO',
+                      color: const Color(0xFFBF360C),
+                      enabled: !isCompleted,
+                      onTap: _recordRunOut,
+                    ),
+                    _RunButton(
+                      label: 'BYE',
+                      enabled: !isCompleted,
+                      onTap: () => _recordExtra(ExtraType.bye),
+                    ),
+                    _RunButton(
+                      label: 'LB',
+                      enabled: !isCompleted,
+                      onTap: () => _recordExtra(ExtraType.legBye),
+                    ),
                   ],
                 ),
               ),
@@ -202,7 +282,8 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
     WicketType? wicketType,
   }) {
     if (wicketType != null) return false;
-    if (extraType == ExtraType.wide || extraType == ExtraType.noBall) return false;
+    if (extraType == ExtraType.wide || extraType == ExtraType.noBall)
+      return false;
     return runs.isOdd;
   }
 
@@ -223,20 +304,27 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
   }) async {
     if (_config == null) return;
     try {
-      await ref.read(scoringRepositoryProvider).recordBall(
-        config: _config!,
-        strikerId: _strikerId,
-        nonStrikerId: _nonStrikerId,
-        bowlerId: _bowlerId,
-        runsOffBat: extraType == ExtraType.bye || extraType == ExtraType.legBye ? 0 : runs,
-        extraType: extraType,
-        extraRuns: extraRuns,
-        wicketType: wicketType,
-        dismissedPlayerId: dismissedPlayerId,
-        fielderId: fielderId,
-      );
+      await ref
+          .read(scoringRepositoryProvider)
+          .recordBall(
+            config: _config!,
+            strikerId: _strikerId,
+            nonStrikerId: _nonStrikerId,
+            bowlerId: _bowlerId,
+            runsOffBat:
+                extraType == ExtraType.bye || extraType == ExtraType.legBye
+                ? 0
+                : runs,
+            extraType: extraType,
+            extraRuns: extraRuns,
+            wicketType: wicketType,
+            dismissedPlayerId: dismissedPlayerId,
+            fielderId: fielderId,
+          );
       if (_shouldRotateStrike(
-        runs: extraType == ExtraType.bye || extraType == ExtraType.legBye ? extraRuns : runs,
+        runs: extraType == ExtraType.bye || extraType == ExtraType.legBye
+            ? extraRuns
+            : runs,
         extraType: extraType,
         wicketType: wicketType,
       )) {
@@ -246,7 +334,11 @@ class _ScoringScreenState extends ConsumerState<ScoringScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('ScoringEngineException: ', ''))),
+          SnackBar(
+            content: Text(
+              e.toString().replaceAll('ScoringEngineException: ', ''),
+            ),
+          ),
         );
       }
     }
@@ -321,7 +413,10 @@ class _PlayerField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
       ),
     );
   }
@@ -361,7 +456,14 @@ class _BallChip extends StatelessWidget {
     return CircleAvatar(
       radius: 16,
       backgroundColor: color,
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -372,7 +474,9 @@ class _WicketChoice {
     required this.dismissedPlayerId,
     this.fielder,
     this.runsCompleted = 0,
-  }) : extraType = null : extraRuns = 0;
+    this.extraType,
+    this.extraRuns = 0,
+  });
 
   final WicketType type;
   final String dismissedPlayerId;
@@ -432,14 +536,21 @@ class _WicketSheetState extends State<_WicketSheet> {
           ];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             widget.runOutOnly ? 'Run out' : 'How was the batter out?',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -473,7 +584,10 @@ class _WicketSheetState extends State<_WicketSheet> {
             ),
           if (_type == WicketType.runOut) ...[
             const SizedBox(height: 8),
-            Text('Runs completed before run out', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Runs completed before run out',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -493,7 +607,9 @@ class _WicketSheetState extends State<_WicketSheet> {
             TextField(
               controller: _fielderController,
               decoration: InputDecoration(
-                labelText: _type == WicketType.stumped ? 'Wicketkeeper (optional)' : 'Fielder (optional)',
+                labelText: _type == WicketType.stumped
+                    ? 'Wicketkeeper (optional)'
+                    : 'Fielder (optional)',
               ),
             ),
           ],
@@ -508,11 +624,15 @@ class _WicketSheetState extends State<_WicketSheet> {
                   fielder: _fielderController.text.trim().isEmpty
                       ? null
                       : _fielderController.text.trim(),
-                  runsCompleted: _type == WicketType.runOut ? _runsCompleted : 0,
+                  runsCompleted: _type == WicketType.runOut
+                      ? _runsCompleted
+                      : 0,
                 ),
               );
             },
-            child: Text(widget.runOutOnly ? 'Confirm run out' : 'Confirm wicket'),
+            child: Text(
+              widget.runOutOnly ? 'Confirm run out' : 'Confirm wicket',
+            ),
           ),
         ],
       ),
@@ -558,7 +678,12 @@ class _ExtraRunsSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Text(
             type == ExtraType.noBall
@@ -570,7 +695,10 @@ class _ExtraRunsSheet extends StatelessWidget {
           Wrap(
             spacing: 8,
             children: [
-              for (final n in type == ExtraType.noBall ? [0, 1, 2, 3, 4, 6] : [1, 2, 3, 4, 5])
+              for (final n
+                  in type == ExtraType.noBall
+                      ? [0, 1, 2, 3, 4, 6]
+                      : [1, 2, 3, 4, 5])
                 ActionChip(
                   label: Text('$n'),
                   onPressed: () => Navigator.pop(context, n),
@@ -624,27 +752,45 @@ class _ScoreHeader extends StatelessWidget {
         children: [
           Text(
             '$teamA vs $teamB',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Innings $innings · $battingTeam',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             '$runs/$wickets',
-            style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.bold, height: 1),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 52,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
           ),
           const SizedBox(height: 4),
-          Text('($overs ov)  ·  RR $runRate', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+          Text(
+            '($overs ov)  ·  RR $runRate',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+          ),
           if (target != null && innings == 2) ...[
             const SizedBox(height: 8),
             Text(
               runsNeeded != null && runsNeeded > 0
                   ? 'Target $target · Need $runsNeeded${requiredRunRate != null ? ' · RRR ${requiredRunRate!.toStringAsFixed(2)}' : ''}'
                   : 'Target $target',
-              style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           if (isFreeHit) ...[
@@ -655,7 +801,13 @@ class _ScoreHeader extends StatelessWidget {
                 color: AppColors.accent,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text('FREE HIT', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              child: const Text(
+                'FREE HIT',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ),
           ],
         ],
